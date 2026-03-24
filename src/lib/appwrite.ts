@@ -187,29 +187,7 @@ export { ID };
 
 
 export const createEmailPasswordSessionViaRest = async (email: string, password: string) => {
-  const response = await fetch(`${endpoint}/account/sessions/email`, {
-    method: "POST",
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Appwrite-Project": projectId,
-    },
-    body: JSON.stringify({ email, password }),
-  });
-
-  const data = await response.json().catch(() => null);
-
-  if (!response.ok) {
-    const error = new Error(data?.message || "Failed to create email/password session") as Error & {
-      code?: number;
-      type?: string;
-    };
-    error.code = data?.code || response.status;
-    error.type = data?.type;
-    throw error;
-  }
-
-  return data;
+  return account.createEmailPasswordSession(email, password);
 };
 
 

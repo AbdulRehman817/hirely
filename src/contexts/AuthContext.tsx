@@ -1,57 +1,71 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import { Models, Account as AppwriteAccount, Permission, Role } from "appwrite";
+import { Models } from "appwrite";
 import { account, databases, DATABASE_ID, COLLECTIONS, ID, storage, BUCKETS, Query } from "@/lib/appwrite";
 
+type UserRole = "candidate" | "employer" | null;
 
-
-
-
-const createEmailPasswordSessionViaRest = async (email: string, password: string) => {
-  const endpoint = import.meta.env.VITE_APPWRITE_ENDPOINT;
-  const projectId = import.meta.env.VITE_APPWRITE_PROJECT_ID;
-
-  if (!endpoint || !projectId) {
-    throw new Error("Missing Appwrite environment variables. Set VITE_APPWRITE_ENDPOINT and VITE_APPWRITE_PROJECT_ID.");
-  }
-
-  let response: Response;
-  try {
-    response = await fetch(`${endpoint}/account/sessions/email`, {
-      method: "POST",
-      credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Appwrite-Project": projectId,
-      },
-      body: JSON.stringify({ email, password }),
-    });
-  } catch (error) {
-    const origin = typeof window !== "undefined" ? window.location.origin : "your app URL";
-    throw new Error(
-      `Network/CORS error while creating Appwrite session. Add ${origin} in Appwrite Console → Project Settings → Platforms (Web), then retry.`
-    );
-  }
-
-  const data = await response.json().catch(() => null);
-
-  if (!response.ok) {
-    const message = data?.message || "Failed to create email/password session";
-    throw new Error(message);
-  }
-
-  return data;
+type AuthError = Error & {
+  code?: number;
+  type?: string;
+  originalMessage?: string;
 };
-
 
 const clearCurrentSessionIfExists = async () => {
   try {
     await account.deleteSession("current");
-  } catch (_error) {
+  } catch {
     // Ignore when there is no active session.
   }
 };
 
-type UserRole = "candidate" | "employer" | null;
+const getPlatformSetupMessage = () => {
+  const origin = typeof window !== "undefined" ? window.location.origin : "your app URL";
+  return `Your Appwrite session could not be established. Add ${origin} in Appwrite Console -> Project Settings -> Platforms (Web), then try again.`;
+};
+
+const normalizeAuthError = (error: unknown): AuthError => {
+  const source = error as Partial<AuthError> | undefined;
+  const rawMessage = String(source?.message || "").trim();
+  const rawType = String(source?.type || "").trim();
+  const normalized = new Error(rawMessage || "Something went wrong. Please try again.") as AuthError;
+
+  if (typeof source?.code === "number") {
+    normalized.code = source.code;
+  }
+
+  if (rawType) {
+    normalized.type = rawType;
+  }
+
+  if (rawMessage) {
+    normalized.originalMessage = rawMessage;
+  }
+
+  const combined = `${rawType} ${rawMessage}`.toLowerCase();
+
+  if (
+    (combined.includes("forbidden") && combined.includes("invalid origin")) ||
+    (combined.includes("missing scopes") && combined.includes("account"))
+  ) {
+    normalized.message = getPlatformSetupMessage();
+    return normalized;
+  }
+
+  if (
+    combined.includes("user_already_exists") ||
+    combined.includes("already exists") ||
+    combined.includes("already registered")
+  ) {
+    normalized.message = "A user with this email already exists. Try signing in instead.";
+    return normalized;
+  }
+
+  if (combined.includes("invalid credentials")) {
+    normalized.message = "Invalid email or password.";
+  }
+
+  return normalized;
+};
 
 const isAnonymousAppwriteUser = (appwriteUser: Models.User<Models.Preferences>) => {
   return !appwriteUser.email || appwriteUser.email.trim().length === 0;
@@ -122,6 +136,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     resume_url: document.resume_url || null,
   });
 
+  const clearState = () => {
+    setUser(null);
+    setUserRole(null);
+    setProfile(null);
+  };
+
   const getProfileDocument = async (userId: string) => {
     try {
       const { documents } = await databases.listDocuments(DATABASE_ID, COLLECTIONS.PROFILES, [
@@ -134,10 +154,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const ensureProfile = async (appwriteUser: Models.User<Models.Preferences>, overrides?: Partial<Profile>) => {
+  const ensureProfile = async (
+    appwriteUser: Models.User<Models.Preferences>,
+    overrides?: Partial<Profile>
+  ) => {
     const payload = {
       user_id: appwriteUser.$id,
-      email: appwriteUser.email,
+      email: overrides?.email || appwriteUser.email || "",
       role: (overrides?.role || "candidate") as "candidate" | "employer",
       full_name: overrides?.full_name || "",
       avatar_url: overrides?.avatar_url || null,
@@ -158,23 +181,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const existingProfile = await getProfileDocument(appwriteUser.$id);
 
       if (existingProfile) {
-        // Update existing profile
-        const { $id } = existingProfile;
-        await databases.updateDocument(DATABASE_ID, COLLECTIONS.PROFILES, $id, payload);
-        const result = { ...existingProfile, ...payload };
-        return result;
-      } else {
-        // Create new profile
-        const document = await databases.createDocument(
-          DATABASE_ID,
-          COLLECTIONS.PROFILES,
-          ID.unique(),
-          payload
-        );
-        return document;
+        await databases.updateDocument(DATABASE_ID, COLLECTIONS.PROFILES, existingProfile.$id, payload);
+        return { ...existingProfile, ...payload };
       }
+
+      return await databases.createDocument(
+        DATABASE_ID,
+        COLLECTIONS.PROFILES,
+        ID.unique(),
+        payload
+      );
     } catch (error) {
-      console.error('❌ AuthContext: Error in ensureProfile:', error);
+      console.error("AuthContext: Error in ensureProfile:", error);
       throw error;
     }
   };
@@ -185,22 +203,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const profileDoc = existingProfile ?? await ensureProfile(appwriteUser);
       const mapped = mapProfile(profileDoc);
 
-      setUser({ id: appwriteUser.$id, email: appwriteUser.email });
+      setUser({ id: appwriteUser.$id, email: mapped.email || appwriteUser.email || "" });
       setUserRole(mapped.role);
       setProfile(mapped);
-      console.log('✅ AuthContext: Profile loaded successfully');
       return mapped;
     } catch (error) {
-      console.error('❌ AuthContext: Error loading profile:', error);
+      console.error("AuthContext: Error loading profile:", error);
       clearState();
       throw error;
     }
-  };
-
-  const clearState = () => {
-    setUser(null);
-    setUserRole(null);
-    setProfile(null);
   };
 
   const refreshProfile = async () => {
@@ -211,7 +222,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       } else {
         clearState();
       }
-    } catch (error) {
+    } catch {
       clearState();
     }
   };
@@ -222,16 +233,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const initialize = async () => {
       try {
         const currentUser = await account.get();
-        if (!active) return;
+        if (!active) {
+          return;
+        }
+
         if (currentUser && !isAnonymousAppwriteUser(currentUser)) {
           await loadProfile(currentUser);
         } else {
           clearState();
         }
-      } catch (error) {
+      } catch {
         clearState();
       }
-      setLoading(false);
+
+      if (active) {
+        setLoading(false);
+      }
     };
 
     initialize();
@@ -241,107 +258,81 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
   }, []);
 
-const signUp = async (
-  email: string,
-  password: string,
-  fullName: string,
-  role: "candidate" | "employer",
-  avatarFile?: File | null
-) => {
-  console.log('🔄 AuthContext: signUp called with:', { email, fullName, role, hasAvatar: !!avatarFile });
-  try {
-    await clearCurrentSessionIfExists();
-
-    // Create account
-    console.log('📡 AuthContext: Creating Appwrite account');
-    const userAccount = await account.create(ID.unique(), email, password, fullName);
-    console.log('✅ AuthContext: Account created:', userAccount.$id);
-
-    // Create session immediately after account creation
-    console.log('📡 AuthContext: Creating session for new user');
-    await createEmailPasswordSessionViaRest(email, password);
-    console.log('✅ AuthContext: Session created');
-
-    // NOW upload avatar with correct permissions (session exists)
-// NOW upload avatar with correct permissions (session exists)
-let avatarUrl: string | null = null;
-if (avatarFile) {
-  try {
-    console.log('📡 AuthContext: Uploading avatar file, type:', avatarFile.type, 'size:', avatarFile.size);
-    
-    // Validate file type
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
-    if (!allowedTypes.includes(avatarFile.type)) {
-      throw new Error(`File type ${avatarFile.type} not allowed. Please use JPG, PNG, GIF, or WEBP.`);
-    }
-    
-    // Validate file size (5MB max)
-    if (avatarFile.size > 5 * 1024 * 1024) {
-      throw new Error('File size too large. Maximum 5MB allowed.');
-    }
-    
-    const uploaded = await storage.createFile(
-      BUCKETS.RESUMES,
-      ID.unique(),
-      avatarFile
-    );
-    avatarUrl = uploaded.$id;
-    console.log('✅ AuthContext: Avatar uploaded:', avatarUrl);
-  } catch (uploadError: any) {
-    console.error("❌ Failed to upload avatar:", uploadError);
-    console.error("❌ Error details:", uploadError.message, uploadError.code);
-    // Continue without avatar - don't fail signup
-  }
-}
-
-    // Create profile with avatar URL
-    console.log('📡 AuthContext: Creating profile with avatar:', avatarUrl);
-    await ensureProfile(userAccount, { 
-      full_name: fullName, 
-      role, 
-      avatar_url: avatarUrl 
-    });
-
-    // Load profile
-    console.log('📡 AuthContext: Loading profile after signup');
-    await loadProfile(userAccount);
-
-    console.log('✅ AuthContext: SignUp completed successfully');
-    return { error: null };
-  } catch (error: any) {
-    console.error('❌ AuthContext: SignUp failed:', error);
-    return { error };
-  }
-};
-  const signIn = async (email: string, password: string) => {
-    console.log('🔄 AuthContext: signIn called with email:', email);
+  const signUp = async (
+    email: string,
+    password: string,
+    fullName: string,
+    role: "candidate" | "employer",
+    avatarFile?: File | null
+  ) => {
     try {
       await clearCurrentSessionIfExists();
 
-      console.log('📡 AuthContext: Creating email/password session');
-      await createEmailPasswordSessionViaRest(email, password);
-      console.log('✅ AuthContext: Session created');
+      await account.create(ID.unique(), email, password, fullName);
+      await account.createEmailPasswordSession(email, password);
 
       const currentUser = await account.get();
-      console.log('📥 AuthContext: Current user from Appwrite:', currentUser.$id);
 
-      console.log('📡 AuthContext: Loading profile after signin');
+      let avatarUrl: string | null = null;
+      if (avatarFile) {
+        try {
+          const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp"];
+          if (!allowedTypes.includes(avatarFile.type)) {
+            throw new Error(`File type ${avatarFile.type} not allowed. Please use JPG, PNG, GIF, or WEBP.`);
+          }
+
+          if (avatarFile.size > 5 * 1024 * 1024) {
+            throw new Error("File size too large. Maximum 5MB allowed.");
+          }
+
+          const uploaded = await storage.createFile(
+            BUCKETS.RESUMES,
+            ID.unique(),
+            avatarFile
+          );
+          avatarUrl = uploaded.$id;
+        } catch (uploadError) {
+          console.error("AuthContext: Failed to upload avatar:", uploadError);
+        }
+      }
+
+      await ensureProfile(currentUser, {
+        email,
+        full_name: fullName,
+        role,
+        avatar_url: avatarUrl,
+      });
+
+      await loadProfile(currentUser);
+
+      return { error: null };
+    } catch (error) {
+      console.error("AuthContext: SignUp failed:", error);
+      return { error: normalizeAuthError(error) };
+    }
+  };
+
+  const signIn = async (email: string, password: string) => {
+    try {
+      await clearCurrentSessionIfExists();
+      await account.createEmailPasswordSession(email, password);
+
+      const currentUser = await account.get();
       const loadedProfile = await loadProfile(currentUser);
 
-      console.log('✅ AuthContext: SignIn completed successfully');
       return { error: null, role: loadedProfile.role };
-    } catch (error: any) {
-      console.error('❌ AuthContext: SignIn failed:', error);
-      return { error };
+    } catch (error) {
+      console.error("AuthContext: SignIn failed:", error);
+      return { error: normalizeAuthError(error) };
     }
   };
 
   const signOut = async () => {
     try {
-      await account.deleteSession('current');
+      await account.deleteSession("current");
       clearState();
     } catch (error) {
-      console.error('Error signing out:', error);
+      console.error("Error signing out:", error);
     }
   };
 
