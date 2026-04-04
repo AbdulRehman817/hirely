@@ -266,24 +266,55 @@ const JobDetails = () => {
     return true;
   };
 
-  const handleShareJob = async () => {
-    const shareUrl = `${window.location.origin}/#/job/${job.$id}`;
-    const postedOn = format(new Date(job.posted_date), "EEE MMM dd yyyy");
-    const cleanedDescription = job.description.replace(/\s+/g, " ").trim();
-    const descriptionPreview = cleanedDescription.length > 220
-      ? `${cleanedDescription.slice(0, 220).trim()}...`
-      : cleanedDescription;
-    const shareMessage = ["", `📣 Job Alert: ${job.title}`, `Location: ${job.location}`, `Posted: ${postedOn}`, "", descriptionPreview, "", `Apply now on ${window.location.host}`, shareUrl].join("\n");
-    if (navigator.share) {
-      try { await navigator.share({ text: shareMessage }); return; }
-      catch (error) {
-        if ((error as Error).name === "AbortError") return;
-        await copyShareMessage(shareMessage); return;
-      }
-    }
-    await copyShareMessage(shareMessage);
-  };
 
+const handleShareJob = async () => {
+  const PRODUCTION_URL = "https://hirelypk.vercel.app";
+  const shareUrl = `${PRODUCTION_URL}/#/job/${job.$id}`;
+  const postedOn = format(new Date(job.posted_date), "dd MMM yyyy");
+
+  const cleanedDescription = stripTagsLineFromDescription(job.description)
+    .replace(/\s+/g, " ")
+    .trim();
+  const descriptionPreview =
+    cleanedDescription.length > 180
+      ? `${cleanedDescription.slice(0, 177).trimEnd()}...`
+      : cleanedDescription;
+
+  const hashtags =
+    jobTags.length > 0
+      ? jobTags.slice(0, 5).map((t) => `#${t.replace(/\s+/g, "")}`).join(" ")
+      : null;
+
+  const lines = [
+    `New Job: ${job.title} at ${companyName}`,
+    ``,
+    `Location: ${job.location}`,
+    `Type: ${typeConfig.label}`,
+    ...(hasSalary ? [`Salary: PKR ${salaryDisplay}`] : []),
+    ...(job.experience_level ? [`Experience: ${job.experience_level}`] : []),
+    ``,
+    descriptionPreview,
+    ``,
+    ...(hashtags ? [`${hashtags}`, ``] : []),
+    shareUrl,
+  ];
+
+  const shareMessage = lines.join("\n");
+
+  if (navigator.share) {
+    try {
+      await navigator.share({
+        title: `${job.title} at ${companyName}`,
+        text: shareMessage,
+      });
+      return;
+    } catch (error) {
+      if ((error as Error).name === "AbortError") return;
+    }
+  }
+
+  await copyShareMessage(shareMessage);
+};
   const handleSave = async () => {
     if (!user) {
       toast({ title: "Sign in required", description: "Please sign in to save jobs", variant: "destructive" });
