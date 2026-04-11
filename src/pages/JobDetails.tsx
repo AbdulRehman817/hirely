@@ -117,6 +117,20 @@ const getJobTags = (job: any): string[] => {
   return extractPlainTagsLine(job?.description || "");
 };
 
+const isMissingJobError = (error: unknown) => {
+  if (!error || !(error instanceof Error)) return false;
+
+  const code = Number((error as Error & { code?: number }).code);
+  const message = error.message.toLowerCase();
+
+  return (
+    code === 404 ||
+    message.includes("could not be found") ||
+    message.includes("document with the requested id") ||
+    message.includes("not found")
+  );
+};
+
 const JobDetails = () => {
   const { id } = useParams<{ id: string }>();
   const location = useLocation();
@@ -135,6 +149,7 @@ const JobDetails = () => {
   const { data: isSaved = false } = useIsJobSaved(id || "");
   const profileCompletion = useCandidateProfileCompletion();
   const jobErrorMessage = jobError instanceof Error ? jobError.message : "We could not load this job right now.";
+  const missingJob = isMissingJobError(jobError);
 
   const applyForJob = useApplyForJob();
   const saveJob = useSaveJob();
@@ -347,7 +362,7 @@ const handleShareJob = async () => {
     );
   }
 
-  if (jobError) {
+  if (jobError && !missingJob) {
     return (
       <Layout hideFooter>
         <div className="container mx-auto px-4 py-20 text-center">
@@ -365,7 +380,7 @@ const handleShareJob = async () => {
     );
   }
 
-  if (!job) {
+  if (!job || missingJob) {
     return (
       <Layout hideFooter>
         <div className="container mx-auto px-4 py-20 text-center">

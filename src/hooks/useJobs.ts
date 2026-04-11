@@ -201,6 +201,23 @@ const isUnauthorizedError = (error: any) => {
   );
 };
 
+const isNotFoundError = (error: any) => {
+  const code = Number(error?.code);
+  const message = String(error?.message || "").toLowerCase();
+  const type = String(error?.type || "").toLowerCase();
+
+  return (
+    code === 404 ||
+    message.includes("could not be found") ||
+    message.includes("document with the requested id") ||
+    message.includes("not found") ||
+    type.includes("not_found")
+  );
+};
+
+const shouldRetryWithAnonymousSession = (error: any) =>
+  isUnauthorizedError(error) || isNotFoundError(error);
+
 const hasUnknownAttributeError = (error: any, attribute: string) => {
   const code = Number(error?.code || 0);
   const message = String(error?.message || "").toLowerCase();
@@ -438,18 +455,21 @@ export const useJob = (id: string) => {
         const job = await loadJob();
         return job;
       } catch (error: any) {
-        if (!isUnauthorizedError(error)) {
+        if (!shouldRetryWithAnonymousSession(error)) {
           console.error("useJob: Error fetching job:", error);
           throw error;
         }
 
-        console.warn("useJob: Guest access unauthorized. Trying anonymous session fallback.");
+        console.warn("useJob: Initial guest fetch failed. Trying anonymous session fallback.");
         try {
           await ensureAnonymousSession();
           const job = await loadJob();
           return job;
         } catch (retryError: any) {
           console.error("useJob: Guest session fallback failed:", retryError);
+          if (isNotFoundError(retryError)) {
+            throw retryError;
+          }
           throw guestAccessGuidanceError(retryError);
         }
       }
