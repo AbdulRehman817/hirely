@@ -268,9 +268,9 @@ const JobDetails = () => {
 
 
 const handleShareJob = async () => {
-  const PRODUCTION_URL = "https://hirelypk.vercel.app";
-  const shareUrl = `${PRODUCTION_URL}/#/job/${job.$id}`;
-  const postedOn = format(new Date(job.posted_date), "dd MMM yyyy");
+
+    const shareUrl = `${window.location.origin}/#/job/${job.$id}`;
+      const postedOn = format(new Date(job.posted_date), "dd MMM yyyy");
 
   const cleanedDescription = stripTagsLineFromDescription(job.description)
     .replace(/\s+/g, " ")
