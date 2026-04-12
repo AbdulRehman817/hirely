@@ -11,7 +11,7 @@ import {
   useLocation,
   useNavigate,
 } from "react-router-dom";
-import { AuthProvider } from "@/contexts/AuthContext";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/components/theme-provider";
 import PageLoader from "@/components/layout/PageLoader";
 import JobDetails from "./pages/JobDetails";
@@ -50,6 +50,20 @@ const HashJobRouteBridge = () => {
   return null;
 };
 
+const DashboardRedirect = () => {
+  const { loading, user, userRole } = useAuth();
+
+  if (loading) {
+    return <PageLoader />;
+  }
+
+  if (!user) {
+    return <Navigate to="/signin" replace />;
+  }
+
+  return <Navigate to={userRole === "employer" ? "/employer-dashboard" : "/profile"} replace />;
+};
+
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -69,7 +83,7 @@ const App = () => (
                 <Route path="/job/:id" element={<JobDetails />} />
                 <Route path="/employers" element={<Employers />} />
                 <Route path="/company/:id" element={<CompanyProfile />} />
-                <Route path="/dashboard" element={<Navigate to="/" replace />} />
+                <Route path="/dashboard" element={<DashboardRedirect />} />
                 <Route path="/saved-jobs" element={<SavedJobs />} />
                 <Route path="/employer-dashboard" element={<EmployerDashboard />} />
                 <Route path="/notifications" element={<Notifications />} />

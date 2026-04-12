@@ -29,6 +29,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useResumeUpload } from "@/hooks/useResumeUpload";
 import { useCandidateProfileCompletion } from "@/hooks/useProfileCompletion";
+import { useMyApplicationStats } from "@/hooks/useApplications";
 import { databases, DATABASE_ID, COLLECTIONS, Query, storage, BUCKETS, ID } from "@/lib/appwrite";
 import { getAvatarUrl } from "@/lib/avatar";
 import { dispatchFeedbackNudge } from "@/lib/feedbackPrompt";
@@ -39,6 +40,7 @@ const Profile = () => {
   const { toast } = useToast();
   const { uploadResume, deleteResume, uploading, getResumeUrl } = useResumeUpload();
   const profileCompletion = useCandidateProfileCompletion();
+  const { data: applicationStats } = useMyApplicationStats();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const [saving, setSaving] = useState(false);
@@ -237,8 +239,8 @@ const Profile = () => {
               <div className="text-sm text-muted-foreground">
                 <Link to="/" className="hover:text-primary">Home</Link>
                 <span className="mx-2">/</span>
-                <Link to="/dashboard" className="hover:text-primary">
-                  Dashboard
+                <Link to="/find-jobs" className="hover:text-primary">
+                  Find Jobs
                 </Link>
                 <span className="mx-2">/</span>
                 <span className="text-foreground">Profile</span>
@@ -265,6 +267,20 @@ const Profile = () => {
 
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            {[
+              { label: "Applied", value: applicationStats?.total ?? 0 },
+              { label: "Shortlisted", value: applicationStats?.shortlisted ?? 0 },
+              { label: "Hired", value: applicationStats?.hired ?? 0 },
+              { label: "Rejected", value: applicationStats?.rejected ?? 0 },
+            ].map((stat) => (
+              <div key={stat.label} className="bg-card border border-border rounded-xl p-4">
+                <p className="text-2xl font-bold text-foreground">{stat.value}</p>
+                <p className="text-sm text-muted-foreground mt-1">{stat.label}</p>
+              </div>
+            ))}
+          </div>
+
           <form onSubmit={handleSubmit} className="space-y-8">
             {/* Profile Header Card */}
             <div className="bg-card border border-border rounded-xl p-6 md:p-8">

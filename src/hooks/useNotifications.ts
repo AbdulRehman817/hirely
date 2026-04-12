@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { databases, ID, COLLECTIONS, DATABASE_ID, Query } from "@/lib/appwrite";
+import { Permission, Role } from "appwrite";
 import { useAuth } from "@/contexts/AuthContext";
 
 export interface Notification {
@@ -14,6 +15,40 @@ export interface Notification {
   $createdAt: string;
 }
 
+const NOTIFICATION_BATCH_SIZE = 100;
+
+const buildNotificationPermissions = (userId: string) => [
+  Permission.read(Role.users()),
+];
+
+const fetchUserNotifications = async (userId: string) => {
+  const results: Notification[] = [];
+  let offset = 0;
+
+  while (true) {
+    const { documents } = await databases.listDocuments(
+      DATABASE_ID,
+      COLLECTIONS.NOTIFICATIONS,
+      [
+        Query.equal("user_id", userId),
+        Query.orderDesc("$createdAt"),
+        Query.limit(NOTIFICATION_BATCH_SIZE),
+        Query.offset(offset),
+      ]
+    );
+
+    results.push(...(documents as Notification[]));
+
+    if (documents.length < NOTIFICATION_BATCH_SIZE) {
+      break;
+    }
+
+    offset += NOTIFICATION_BATCH_SIZE;
+  }
+
+  return results;
+};
+
 export const useNotifications = () => {
   const { user } = useAuth();
 
@@ -22,12 +57,7 @@ export const useNotifications = () => {
     queryFn: async () => {
       if (!user) return [] as Notification[];
       try {
-        const { documents } = await databases.listDocuments(
-          DATABASE_ID,
-          COLLECTIONS.NOTIFICATIONS,
-          [Query.equal('user_id', user.id), Query.orderDesc('$createdAt')]
-        );
-        return documents as Notification[];
+        return await fetchUserNotifications(user.id);
       } catch (error) {
         console.error('Error fetching notifications:', error);
         throw error;
@@ -45,12 +75,8 @@ export const useUnreadNotificationsCount = () => {
     queryFn: async () => {
       if (!user) return 0;
       try {
-        const { documents } = await databases.listDocuments(
-          DATABASE_ID,
-          COLLECTIONS.NOTIFICATIONS,
-          [Query.equal('user_id', user.id), Query.equal('is_read', false)]
-        );
-        return documents.length;
+        const notifications = await fetchUserNotifications(user.id);
+        return notifications.filter((notification) => !notification.is_read).length;
       } catch (error) {
         console.error('Error fetching unread notifications count:', error);
         return 0;
@@ -92,11 +118,8 @@ export const useMarkAllNotificationsRead = () => {
     mutationFn: async () => {
       if (!user) throw new Error("Not signed in");
       try {
-        // Get all unread notifications
-        const { documents } = await databases.listDocuments(
-          DATABASE_ID,
-          COLLECTIONS.NOTIFICATIONS,
-          [Query.equal('user_id', user.id), Query.equal('is_read', false)]
+        const documents = (await fetchUserNotifications(user.id)).filter(
+          (notification) => !notification.is_read
         );
 
         // Mark each one as read
@@ -140,7 +163,8 @@ export const useCreateNotification = () => {
             job_id: notification.job_id || null,
             application_id: notification.application_id || null,
             is_read: false,
-          }
+          },
+          buildNotificationPermissions(notification.user_id)
         );
         return document as Notification;
       } catch (error) {

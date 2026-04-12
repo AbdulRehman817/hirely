@@ -1,20 +1,36 @@
 import { Link, Navigate } from "react-router-dom";
-import { Bell, Check, Trash2, CheckCheck } from "lucide-react";
+import { Bell, Check, CheckCheck, Trash2 } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
 import { Button } from "@/components/ui/button";
 import Layout from "@/components/layout/Layout";
 import PageLoader from "@/components/layout/PageLoader";
 import { useAuth } from "@/contexts/AuthContext";
 import {
-  useNotifications,
-  useMarkNotificationRead,
-  useMarkAllNotificationsRead,
   useDeleteNotification,
+  useMarkAllNotificationsRead,
+  useMarkNotificationRead,
+  useNotifications,
 } from "@/hooks/useNotifications";
 import { cn } from "@/lib/utils";
-import { formatDistanceToNow } from "date-fns";
+
+const buildNotificationTarget = (notification: { type: string; job_id?: string | null }) => {
+  const jobId = String(notification.job_id || "").trim();
+
+  if (notification.type === "application_received") {
+    return jobId
+      ? `/employer-dashboard?tab=applications&job=${encodeURIComponent(jobId)}`
+      : "/employer-dashboard?tab=applications";
+  }
+
+  if (jobId) {
+    return `/job/${encodeURIComponent(jobId)}`;
+  }
+
+  return "/notifications";
+};
 
 const Notifications = () => {
-  const { user, loading,userRole } = useAuth();
+  const { user, loading, userRole } = useAuth();
   const { data: notifications = [], isLoading } = useNotifications();
   const markRead = useMarkNotificationRead();
   const markAllRead = useMarkAllNotificationsRead();
@@ -35,15 +51,15 @@ const Notifications = () => {
   const getNotificationIcon = (type: string) => {
     switch (type) {
       case "shortlisted":
-        return "🎯";
+        return "SL";
       case "rejected":
-        return "❌";
+        return "RJ";
       case "hired":
-        return "🎉";
+        return "HI";
       case "application_received":
-        return "📩";
+        return "AP";
       default:
-        return "🔔";
+        return "NT";
     }
   };
 
@@ -62,7 +78,7 @@ const Notifications = () => {
     }
   };
 
-  const unreadCount = notifications.filter((n) => !n.is_read).length;
+  const unreadCount = notifications.filter((notification) => !notification.is_read).length;
 
   return (
     <Layout hideFooter>
@@ -81,10 +97,11 @@ const Notifications = () => {
 
       <div className="container mx-auto px-4 py-10">
         <div className="max-w-4xl mx-auto">
-          {/* Header Actions */}
           <div className="flex items-center justify-between mb-8">
             <p className="text-lg text-muted-foreground">
-              {unreadCount > 0 ? `${unreadCount} unread notification${unreadCount > 1 ? "s" : ""}` : "All caught up!"}
+              {unreadCount > 0
+                ? `${unreadCount} unread notification${unreadCount > 1 ? "s" : ""}`
+                : "All caught up!"}
             </p>
             {unreadCount > 0 && (
               <Button
@@ -100,7 +117,6 @@ const Notifications = () => {
             )}
           </div>
 
-          {/* Notifications List */}
           <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
             {notifications.length === 0 ? (
               <div className="p-20 text-center">
@@ -112,78 +128,84 @@ const Notifications = () => {
               </div>
             ) : (
               <div className="divide-y divide-border">
-               {notifications.map((notification) => {
-  const isRecruiterNotification =
-    userRole === "employer" && notification.type === "application_received";
+                {notifications.map((notification) => {
+                  const isRecruiterNotification =
+                    userRole === "employer" && notification.type === "application_received";
+                  const hasJobTarget = Boolean(notification.job_id);
 
-  return (
-    <div
-      key={notification.$id}
-      className={cn(
-        "p-6 sm:p-8 flex flex-col gap-6 sm:flex-row sm:items-start transition-colors",
-        !notification.is_read && "bg-primary/5"
-      )}
-    >
-    
- <div
+                  return (
+                    <div
+                      key={notification.$id}
                       className={cn(
-                        "w-12 h-12 rounded-full flex items-center justify-center text-2xl shrink-0 border",
-                        getNotificationColor(notification.type)
+                        "p-6 sm:p-8 flex flex-col gap-6 sm:flex-row sm:items-start transition-colors",
+                        !notification.is_read && "bg-primary/5"
                       )}
                     >
-                      {getNotificationIcon(notification.type)}
-                    </div>
+                      <div
+                        className={cn(
+                          "w-12 h-12 rounded-full flex items-center justify-center text-sm font-semibold shrink-0 border",
+                          getNotificationColor(notification.type)
+                        )}
+                      >
+                        {getNotificationIcon(notification.type)}
+                      </div>
 
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-4">
-                        <div>
-                          <h4 className={cn("text-foreground", !notification.is_read && "font-semibold")}>
-                            {notification.title}
-                          </h4>
-                          <p className="text-sm text-muted-foreground mt-1">{notification.message}</p>
-                          <p className="text-xs text-muted-foreground mt-2">
-                            {formatDistanceToNow(new Date(notification.$createdAt), { addSuffix: true })}
-                          </p>
-                        </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-4">
+                          <div>
+                            <h4 className={cn("text-foreground", !notification.is_read && "font-semibold")}>
+                              {notification.title}
+                            </h4>
+                            <p className="text-sm text-muted-foreground mt-1">{notification.message}</p>
+                            <p className="text-xs text-muted-foreground mt-2">
+                              {formatDistanceToNow(new Date(notification.$createdAt), { addSuffix: true })}
+                            </p>
 
-                        <div className="flex items-center gap-2 shrink-0">
-                          {!notification.is_read && (
+                            {isRecruiterNotification && (
+                              <Link
+                                to={buildNotificationTarget(notification)}
+                                className="inline-flex items-center mt-4 text-sm font-medium text-primary hover:underline"
+                              >
+                                Review application
+                              </Link>
+                            )}
+
+                            {!isRecruiterNotification && hasJobTarget && (
+                              <Link
+                                to={buildNotificationTarget(notification)}
+                                className="inline-flex items-center mt-4 text-sm font-medium text-primary hover:underline"
+                              >
+                                View job
+                              </Link>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0">
+                            {!notification.is_read && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => markRead.mutate(notification.$id)}
+                                className="h-8 w-8"
+                              >
+                                <Check className="h-4 w-4" />
+                              </Button>
+                            )}
+
                             <Button
                               variant="ghost"
                               size="icon"
-                              onClick={() => markRead.mutate(notification.$id)}
-                              className="h-8 w-8"
+                              onClick={() => deleteNotification.mutate(notification.$id)}
+                              className="h-8 w-8 text-destructive hover:text-destructive"
                             >
-                              <Check className="h-4 w-4" />
+                              <Trash2 className="h-4 w-4" />
                             </Button>
-                          )}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => deleteNotification.mutate(notification.$id)}
-                            className="h-8 w-8 text-destructive hover:text-destructive"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          </div>
                         </div>
                       </div>
-</div>
-
-
-
-
-
-      {isRecruiterNotification && (
-        <Link
-          to="/employer-dashboard"
-          className="inline-flex items-center mt-4 text-sm font-medium text-primary hover:underline"
-        >
-          View User Details →
-        </Link>
-      )}
-    </div>
-  );
-})}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>

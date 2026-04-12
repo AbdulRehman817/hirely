@@ -36,10 +36,10 @@ import ProfileCompletionBanner from "@/components/profile/ProfileCompletionBanne
 import { useAuth } from "@/contexts/AuthContext";
 import { useMyJobs, useDeleteJob, useUpdateJob } from "@/hooks/useJobs";
 import { useMyCompanies } from "@/hooks/useCompanies";
-import { useJobApplications, useUpdateApplicationStatus } from "@/hooks/useApplications";
+import { useEmployerApplications, useUpdateApplicationStatus } from "@/hooks/useApplications";
 import { useCreateNotification } from "@/hooks/useNotifications";
 import { useEmployerProfileCompletion } from "@/hooks/useProfileCompletion";
-import { sendNotificationEmail } from "@/hooks/useEmailNotification";
+import { sendShortlistedEmail, sendRejectedEmail, sendHiredEmail } from "@/services/emailService";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
@@ -59,9 +59,10 @@ const EmployerDashboard = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const rawTab = searchParams.get("tab") || "overview";
   const defaultTab = ["overview", "jobs", "applications"].includes(rawTab) ? rawTab : "overview";
+  const jobIds = jobs.map((job) => job.$id);
   const [selectedJobForApps, setSelectedJobForApps] = useState<string | null>(null);
   const [applicantDetail, setApplicantDetail] = useState<any>(null);
-    const requestedJobId = searchParams.get("job");
+  const requestedJobId = searchParams.get("job");
   const [resumeUrl, setResumeUrl] = useState<string | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean;
@@ -75,11 +76,10 @@ const EmployerDashboard = () => {
     applicantEmail: string;
   }>({ open: false, type: null, applicationId: "", userId: "", jobId: "", jobTitle: "", companyName: "", applicantName: "", applicantEmail: "" });
 
-  const { data: applications = [] } = useJobApplications(selectedJobForApps || undefined);
+  const { data: allApplications = [] } = useEmployerApplications(jobIds);
 
-  // Auto-select first job with applications
   useEffect(() => {
-     if (jobs.length === 0) return;
+    if (jobs.length === 0) return;
 
     if (requestedJobId) {
       const targetJob = jobs.find((job) => job.$id === requestedJobId);
@@ -89,10 +89,12 @@ const EmployerDashboard = () => {
       }
     }
 
-    if (!selectedJobForApps) {
+    const hasSelectedJob = selectedJobForApps && jobs.some((job) => job.$id === selectedJobForApps);
+    if (!hasSelectedJob) {
       setSelectedJobForApps(jobs[0].$id);
     }
- }, [jobs, requestedJobId, selectedJobForApps]);
+  }, [jobs, requestedJobId, selectedJobForApps]);
+
   if (loading) {
     return (
       <Layout>
@@ -106,13 +108,26 @@ const EmployerDashboard = () => {
   }
 
   if (userRole === "candidate") {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to="/profile" replace />;
   }
 
+  const selectedJob = jobs.find(j => j.$id === selectedJobForApps);
+  const selectedJobApplications = selectedJobForApps
+    ? allApplications.filter((application) => application.job_id === selectedJobForApps)
+    : [];
+  const applicationCountsByJob = allApplications.reduce<Record<string, number>>((accumulator, application) => {
+    const jobId = application.job_id;
+    if (!jobId) {
+      return accumulator;
+    }
+
+    accumulator[jobId] = (accumulator[jobId] || 0) + 1;
+    return accumulator;
+  }, {});
   const activeJobs = jobs.filter(j => j.status === "active").length;
-  const totalApplicants = applications.length;
-  const pendingApplicants = applications.filter(a => a.status === "pending").length;
-  const hiredApplicants = applications.filter(a => a.status === "hired").length;
+  const totalApplicants = allApplications.length;
+  const pendingApplicants = allApplications.filter(a => a.status === "pending").length;
+  const hiredApplicants = allApplications.filter(a => a.status === "hired").length;
 
   const stats = [
     { label: "Active Jobs", value: activeJobs, icon: Briefcase, color: "bg-primary/10 text-primary dark:bg-primary/20", subtext: `${jobs.length} total` },
@@ -137,7 +152,7 @@ const EmployerDashboard = () => {
     application: any
   ) => {
     const job = jobs.find(j => j.$id === application.job_id);
-    const company = companies[0];
+    const company = companies.find((item) => item.$id === job?.company_id) || companies[0];
     
     const applicantEmail = application.profiles?.email || "";
     
@@ -191,15 +206,15 @@ const EmployerDashboard = () => {
         application_id: applicationId,
       });
 
-      // Send email notification (fire and forget)
+      // Send email to job seeker (fire and forget)
       if (applicantEmail) {
-        sendNotificationEmail({
-          to: applicantEmail,
-          type: config.type as "shortlisted" | "hired" | "rejected",
-          jobTitle,
-          companyName,
-          candidateName: applicantName,
-        }).catch(console.error);
+        if (type === "shortlist") {
+          sendShortlistedEmail(applicantEmail, applicantName, jobTitle, companyName, jobId).catch(console.error);
+        } else if (type === "reject") {
+          sendRejectedEmail(applicantEmail, applicantName, jobTitle, companyName).catch(console.error);
+        } else if (type === "hire") {
+          sendHiredEmail(applicantEmail, applicantName, jobTitle, companyName).catch(console.error);
+        }
       }
 
       // If hired, close the job (remove from listings)
@@ -270,7 +285,6 @@ const EmployerDashboard = () => {
     }
   };
 
-  const selectedJob = jobs.find(j => j.$id === selectedJobForApps);
   const isActionDisabled = (status: string) => status === "hired" || status === "rejected";
 
   const dialogConfig = {
@@ -688,7 +702,7 @@ Applied {formatDistanceToNow(new Date(applicantDetail.applied_at || applicantDet
                     View All <ChevronRight className="h-4 w-4 ml-1" />
                   </Button>
                 </div>
-                {applications.length === 0 ? (
+                {allApplications.length === 0 ? (
                   <div className="p-8 text-center">
                     <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-3">
                       <Users className="h-6 w-6 text-primary" />
@@ -697,7 +711,7 @@ Applied {formatDistanceToNow(new Date(applicantDetail.applied_at || applicantDet
                   </div>
                 ) : (
                   <div className="divide-y divide-border">
-                    {applications.slice(0, 4).map((app) => {
+                    {allApplications.slice(0, 4).map((app) => {
                       const statusConfig = getAppStatusConfig(app.status || "pending");
                       return (
                         <div
@@ -817,10 +831,10 @@ Applied {formatDistanceToNow(new Date(applicantDetail.applied_at || applicantDet
                     <h3 className="font-semibold text-foreground text-sm">Select Job</h3>
                   </div>
                   <div className="divide-y divide-border max-h-[400px] overflow-y-auto">
-                    {jobs.filter(j => j.status === "active").length === 0 ? (
-                      <p className="p-4 text-sm text-muted-foreground">No active jobs</p>
+                    {jobs.length === 0 ? (
+                      <p className="p-4 text-sm text-muted-foreground">No jobs posted yet</p>
                     ) : (
-                      jobs.filter(j => j.status === "active").map((job) => (
+                      jobs.map((job) => (
                         <button
                           key={job.$id}
                           onClick={() => setSelectedJobForApps(job.$id)}
@@ -829,8 +843,15 @@ Applied {formatDistanceToNow(new Date(applicantDetail.applied_at || applicantDet
                             selectedJobForApps === job.$id && "bg-primary/10"
                           )}
                         >
-                          <p className="font-medium text-sm truncate">{job.title}</p>
-                          <p className="text-xs text-muted-foreground">{job.location}</p>
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="font-medium text-sm truncate">{job.title}</p>
+                              <p className="text-xs text-muted-foreground">{job.location}</p>
+                            </div>
+                            <span className="text-xs text-muted-foreground shrink-0">
+                              {applicationCountsByJob[job.$id] || 0}
+                            </span>
+                          </div>
                         </button>
                       ))
                     )}
@@ -843,10 +864,10 @@ Applied {formatDistanceToNow(new Date(applicantDetail.applied_at || applicantDet
                 <div className="bg-card border border-border rounded-xl overflow-hidden">
                   <div className="p-4 border-b border-border">
                     <h3 className="font-semibold text-foreground">
-                      {selectedJob ? `Applicants for "${selectedJob.title}"` : "Select a job"} ({applications.length})
+                      {selectedJob ? `Applicants for "${selectedJob.title}"` : "Select a job"} ({selectedJobApplications.length})
                     </h3>
                   </div>
-                  {applications.length === 0 ? (
+                  {selectedJobApplications.length === 0 ? (
                     <div className="p-12 text-center">
                       <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
                         <Users className="h-8 w-8 text-primary" />
@@ -858,7 +879,7 @@ Applied {formatDistanceToNow(new Date(applicantDetail.applied_at || applicantDet
                     </div>
                   ) : (
                     <div className="divide-y divide-border">
-                      {applications.map((app) => {
+                      {selectedJobApplications.map((app) => {
                         const statusConfig = getAppStatusConfig(app.status || "pending");
                         const disabled = isActionDisabled(app.status || "pending");
                         return (

@@ -127,26 +127,34 @@ const PostJobForm = ({ onSuccess }: PostJobFormProps) => {
       return;
     }
 
-    try {
-      const tagsLine =
-        formData.tags.length > 0
-          ? `\n\nTags: ${formData.tags.map((tag) => `#${tag}`).join(" ")}`
-          : "";
+    const salaryMin = formData.salary_min ? parseInt(formData.salary_min, 10) : null;
+    const salaryMax = formData.salary_max ? parseInt(formData.salary_max, 10) : null;
 
+    if (salaryMin !== null && salaryMax !== null && salaryMin > salaryMax) {
+      toast({
+        title: "Invalid salary range",
+        description: "Minimum salary cannot be greater than maximum salary.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
       const payload: any = {
-        title: formData.title,
+        title: formData.title.trim(),
         company_id: formData.company_id,
-        location: formData.location,
+        location: formData.location.trim(),
         type: formData.type,
-        salary_min: formData.salary_min ? parseInt(formData.salary_min) : null,
-        salary_max: formData.salary_max ? parseInt(formData.salary_max) : null,
+        salary_min: salaryMin,
+        salary_max: salaryMax,
         currency: formData.currency,
         experience_level: formData.experience_level || null,
         category: formData.category || null,
-        description: `${formData.description.trim()}${tagsLine}`,
+        description: formData.description.trim(),
         requirements: formData.requirements.length > 0 ? JSON.stringify(formData.requirements) : null,
         responsibilities: formData.responsibilities.length > 0 ? JSON.stringify(formData.responsibilities) : null,
         benefits: formData.benefits.length > 0 ? JSON.stringify(formData.benefits) : null,
+        skills_required: formData.tags.length > 0 ? JSON.stringify(formData.tags) : null,
         status: formData.status,
         posted_date: new Date().toISOString(),
       };

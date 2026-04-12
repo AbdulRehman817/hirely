@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Permission, Role } from "appwrite";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { storage, databases, DATABASE_ID, COLLECTIONS, BUCKETS, ID, Query } from "@/lib/appwrite";
@@ -45,9 +46,7 @@ export const useResumeUpload = () => {
     setUploading(true);
 
     try {
-      const safeName = file.name.replace(/\s+/g, "_");
       const fileId = ID.unique();
-      const filePath = `${user.id}/${Date.now()}_${safeName}`;
 
       // Delete existing resume if it exists
       if (profile?.resume_url) {
@@ -59,7 +58,16 @@ export const useResumeUpload = () => {
       }
 
       // Upload new file
-      const fileUpload = await storage.createFile(BUCKETS.RESUMES, fileId, file);
+      await storage.createFile(
+        BUCKETS.RESUMES,
+        fileId,
+        file,
+        [
+          Permission.read(Role.user(user.id)),
+          Permission.update(Role.user(user.id)),
+          Permission.delete(Role.user(user.id)),
+        ]
+      );
 
       // Update profile with new resume file ID
       const { documents } = await databases.listDocuments(

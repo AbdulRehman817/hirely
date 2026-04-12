@@ -218,15 +218,20 @@ const isNotFoundError = (error: any) => {
 const shouldRetryWithAnonymousSession = (error: any) =>
   isUnauthorizedError(error) || isNotFoundError(error);
 
-const hasUnknownAttributeError = (error: any, attribute: string) => {
+const extractUnknownAttribute = (error: any) => {
   const code = Number(error?.code || 0);
-  const message = String(error?.message || "").toLowerCase();
-  return (
-    code === 400 &&
-    message.includes("unknown") &&
-    message.includes("attribute") &&
-    message.includes(attribute.toLowerCase())
-  );
+  const message = String(error?.message || "");
+
+  if (code !== 400 || !message) {
+    return null;
+  }
+
+  const match =
+    message.match(/unknown attribute[:\s"'`]+([\w$-]+)/i) ||
+    message.match(/attribute[:\s"'`]+([\w$-]+).*unknown/i) ||
+    message.match(/invalid document structure:.*?([\w$-]+).*unknown/i);
+
+  return match?.[1] || null;
 };
 
 const guestAccessGuidanceError = (error: any) => {
@@ -384,6 +389,51 @@ const fetchPublicJobs = async (
 const fetchJobById = async (id: string, companies?: Company[] | null) => {
   const job = await databases.getDocument(DATABASE_ID, COLLECTIONS.JOBS, id);
   return mergeJobsWithCompanies([job], companies)[0];
+};
+
+const createJobDocumentWithFallbacks = async (
+  createDocument: (documentPayload: Record<string, unknown>) => Promise<any>,
+  payload: Record<string, unknown>
+) => {
+  let currentPayload = { ...payload };
+  const removedAttributes = new Set<string>();
+
+  while (true) {
+    try {
+      return await createDocument(currentPayload);
+    } catch (error: any) {
+      const unknownAttribute = extractUnknownAttribute(error);
+      if (!unknownAttribute || removedAttributes.has(unknownAttribute)) {
+        throw error;
+      }
+
+      removedAttributes.add(unknownAttribute);
+
+      const currentValue = currentPayload[unknownAttribute];
+      if (unknownAttribute === "apply_link" && typeof currentValue === "string" && currentValue.trim()) {
+        const { apply_link: _ignoredApplyLink, ...withoutApplyLink } = currentPayload as Record<string, unknown>;
+        currentPayload = {
+          ...withoutApplyLink,
+          application_url: currentValue,
+        };
+        continue;
+      }
+
+      if (unknownAttribute === "application_url" && typeof currentValue === "string" && currentValue.trim()) {
+        const { application_url: _ignoredApplicationUrl, ...withoutApplicationUrl } =
+          currentPayload as Record<string, unknown>;
+        currentPayload = {
+          ...withoutApplicationUrl,
+          apply_url: currentValue,
+        };
+        continue;
+      }
+
+      const { [unknownAttribute]: _ignoredUnknownAttribute, ...withoutUnknownAttribute } =
+        currentPayload as Record<string, unknown>;
+      currentPayload = withoutUnknownAttribute;
+    }
+  }
 };
 
 export const useJobs = (
@@ -625,39 +675,10 @@ export const useCreateJob = () => {
             ]
           );
 
-        let document;
-        try {
-          document = await createDocument(payload as Record<string, unknown>);
-        } catch (error: any) {
-          const directApplyLink = String((payload as any).apply_link || "").trim();
-          if (!directApplyLink || !hasUnknownAttributeError(error, "apply_link")) {
-            throw error;
-          }
-
-          const { apply_link: _ignoredApplyLink, ...withoutApplyLink } = payload as any;
-          const fallbackPayloads = [
-            { ...withoutApplyLink, application_url: directApplyLink },
-            { ...withoutApplyLink, apply_url: directApplyLink },
-          ];
-
-          let fallbackDocument: any = null;
-          let lastFallbackError: any = error;
-
-          for (const fallbackPayload of fallbackPayloads) {
-            try {
-              fallbackDocument = await createDocument(fallbackPayload);
-              break;
-            } catch (fallbackError: any) {
-              lastFallbackError = fallbackError;
-            }
-          }
-
-          if (!fallbackDocument) {
-            throw lastFallbackError;
-          }
-
-          document = fallbackDocument;
-        }
+        const document = await createJobDocumentWithFallbacks(
+          createDocument,
+          payload as Record<string, unknown>
+        );
 
         // Fetch company data
         if (!document.company_id) {
