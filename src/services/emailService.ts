@@ -1,16 +1,19 @@
-/**
- * Email Service for sending Gmail notifications
- * This service handles sending emails to job seekers and recruiters
- * 
- * SETUP REQUIRED:
- * 1. Set up Appwrite Functions or a backend endpoint
- * 2. Configure Gmail API credentials or use a third-party service (SendGrid, Mailgun)
- * 3. Set VITE_EMAIL_SERVICE_ENDPOINT in .env file
- */
+import { Client, Functions } from "appwrite";
 
-const EMAIL_SERVICE_ENDPOINT = import.meta.env.VITE_EMAIL_SERVICE_ENDPOINT || '';
+const client = new Client()
+  .setEndpoint(import.meta.env.VITE_APPWRITE_ENDPOINT)
+  .setProject(import.meta.env.VITE_APPWRITE_PROJECT_ID);
 
-export type NotificationType = 'shortlisted' | 'rejected' | 'hired' | 'application_received' | 'application_submitted';
+const functions = new Functions(client);
+
+const FUNCTION_ID = import.meta.env.VITE_APPWRITE_EMAIL_FUNCTION_ID;
+
+export type NotificationType =
+  | "shortlisted"
+  | "rejected"
+  | "hired"
+  | "application_received"
+  | "application_submitted";
 
 interface EmailPayload {
   to: string;
@@ -19,39 +22,30 @@ interface EmailPayload {
 }
 
 /**
- * Sends an email via backend service or Appwrite Function
+ * Send email using Appwrite Function
  */
-const sendEmailViaBackend = async (payload: EmailPayload): Promise<boolean> => {
-  if (!EMAIL_SERVICE_ENDPOINT) {
-    console.warn('Email service endpoint not configured. Email not sent.');
-    console.log('Configure VITE_EMAIL_SERVICE_ENDPOINT to enable email notifications.');
+const sendEmailViaBackend = async (
+  payload: EmailPayload
+): Promise<boolean> => {
+  if (!FUNCTION_ID) {
+    console.warn("Email function ID not configured.");
     return false;
   }
 
   try {
-    const response = await fetch(EMAIL_SERVICE_ENDPOINT, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    });
+    await functions.createExecution(
+      FUNCTION_ID,
+      JSON.stringify(payload)
+    );
 
-    if (!response.ok) {
-      console.error('Email service error:', response.statusText);
-      return false;
-    }
-
+    console.log(`✅ ${payload.type} email sent to ${payload.to}`);
     return true;
   } catch (error) {
-    console.error('Error sending email:', error);
+    console.error("❌ Error sending email:", error);
     return false;
   }
 };
 
-/**
- * Send email to job seeker when shortlisted
- */
 export const sendShortlistedEmail = async (
   candidateEmail: string,
   candidateName: string,
@@ -59,73 +53,52 @@ export const sendShortlistedEmail = async (
   companyName: string,
   jobId: string
 ): Promise<void> => {
-  try {
-    await sendEmailViaBackend({
-      to: candidateEmail,
-      type: 'shortlisted',
-      data: {
-        candidateName,
-        jobTitle,
-        companyName,
-        jobId,
-      },
-    });
-  } catch (error) {
-    console.error('Error sending shortlisted email:', error);
-  }
+  await sendEmailViaBackend({
+    to: candidateEmail,
+    type: "shortlisted",
+    data: {
+      candidateName,
+      jobTitle,
+      companyName,
+      jobId,
+    },
+  });
 };
 
-/**
- * Send email to job seeker when rejected
- */
 export const sendRejectedEmail = async (
   candidateEmail: string,
   candidateName: string,
   jobTitle: string,
   companyName: string
 ): Promise<void> => {
-  try {
-    await sendEmailViaBackend({
-      to: candidateEmail,
-      type: 'rejected',
-      data: {
-        candidateName,
-        jobTitle,
-        companyName,
-      },
-    });
-  } catch (error) {
-    console.error('Error sending rejected email:', error);
-  }
+  await sendEmailViaBackend({
+    to: candidateEmail,
+    type: "rejected",
+    data: {
+      candidateName,
+      jobTitle,
+      companyName,
+    },
+  });
 };
 
-/**
- * Send email to job seeker when hired
- */
 export const sendHiredEmail = async (
   candidateEmail: string,
   candidateName: string,
   jobTitle: string,
   companyName: string
 ): Promise<void> => {
-  try {
-    await sendEmailViaBackend({
-      to: candidateEmail,
-      type: 'hired',
-      data: {
-        candidateName,
-        jobTitle,
-        companyName,
-      },
-    });
-  } catch (error) {
-    console.error('Error sending hired email:', error);
-  }
+  await sendEmailViaBackend({
+    to: candidateEmail,
+    type: "hired",
+    data: {
+      candidateName,
+      jobTitle,
+      companyName,
+    },
+  });
 };
 
-/**
- * Send email to recruiter when they receive an application
- */
 export const sendApplicationReceivedEmail = async (
   recruiterEmail: string,
   recruiterName: string,
@@ -134,43 +107,32 @@ export const sendApplicationReceivedEmail = async (
   jobTitle: string,
   companyName: string
 ): Promise<void> => {
-  try {
-    await sendEmailViaBackend({
-      to: recruiterEmail,
-      type: 'application_received',
-      data: {
-        recruiterName,
-        candidateName,
-        candidateEmail,
-        jobTitle,
-        companyName,
-      },
-    });
-  } catch (error) {
-    console.error('Error sending application received email:', error);
-  }
+  await sendEmailViaBackend({
+    to: recruiterEmail,
+    type: "application_received",
+    data: {
+      recruiterName,
+      candidateName,
+      candidateEmail,
+      jobTitle,
+      companyName,
+    },
+  });
 };
 
-/**
- * Send confirmation email to job seeker when they submit an application
- */
 export const sendApplicationSubmittedEmail = async (
   candidateEmail: string,
   candidateName: string,
   jobTitle: string,
   companyName: string
 ): Promise<void> => {
-  try {
-    await sendEmailViaBackend({
-      to: candidateEmail,
-      type: 'application_submitted',
-      data: {
-        candidateName,
-        jobTitle,
-        companyName,
-      },
-    });
-  } catch (error) {
-    console.error('Error sending application submitted email:', error);
-  }
+  await sendEmailViaBackend({
+    to: candidateEmail,
+    type: "application_submitted",
+    data: {
+      candidateName,
+      jobTitle,
+      companyName,
+    },
+  });
 };
