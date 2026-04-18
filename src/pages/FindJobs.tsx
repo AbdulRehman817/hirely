@@ -366,7 +366,7 @@ const FindJobs = () => {
                         {/* Company Logo */}
                         <div className="w-12 h-12 bg-muted rounded-xl flex items-center justify-center overflow-hidden shrink-0 border border-border/50">
                           {job.companyLogo ? (
-                            <img src={job.companyLogo} alt={job.company} className="w-9 h-9 object-contain" />
+                            <img src={job.companyLogo}  loading="lazy" alt={job.company} className="w-9 h-9 object-contain" />
                           ) : (
                             <Building2 className="h-5 w-5 text-muted-foreground" />
                           )}

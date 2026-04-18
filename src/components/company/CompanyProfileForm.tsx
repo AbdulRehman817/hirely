@@ -100,7 +100,7 @@ const CompanyProfileForm = ({ company, open, onOpenChange }: CompanyProfileFormP
           <div className="flex flex-col items-center gap-4 pb-6 border-b">
             <div className="h-24 w-24 rounded-lg bg-primary/10 flex items-center justify-center overflow-hidden ring-2 ring-primary/20">
               {formData.logo_url ? (
-                <img src={formData.logo_url} alt="Logo" className="h-full w-full object-cover" />
+                <img src={formData.logo_url}  loading="lazy" alt="Logo" className="h-full w-full object-cover" />
               ) : (
                 <Building2 className="h-12 w-12 text-primary/50" />
               )}

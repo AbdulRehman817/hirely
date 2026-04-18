@@ -185,7 +185,7 @@ avatarPreview: "",
       <div className="flex flex-col items-center gap-3 pb-4 border-b">
               <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden ring-2 ring-primary/20">
                 {formData.avatarPreview ? (
-                  <img src={formData.avatarPreview} alt="Profile" className="h-full w-full object-cover" />
+                  <img src={formData.avatarPreview}  loading="lazy" alt="Profile" className="h-full w-full object-cover" />
                 ) : (
                   <User className="h-8 w-8 text-primary/50" />
                 )}

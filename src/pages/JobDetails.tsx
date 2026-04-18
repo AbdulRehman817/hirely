@@ -521,7 +521,7 @@ const handleShareJob = async () => {
               <div className="flex flex-col md:flex-row md:items-start gap-5">
                 <div className="w-16 h-16 bg-muted rounded-xl flex items-center justify-center overflow-hidden shrink-0 border border-border/50">
                   {job.companies?.logo_url ? (
-                    <img src={job.companies.logo_url} alt={job.companies.name} className="w-11 h-11 object-contain" />
+                    <img src={job.companies.logo_url}  loading="lazy" alt={job.companies.name} className="w-11 h-11 object-contain" />
                   ) : (
                     <Building2 className="h-8 w-8 text-muted-foreground" />
                   )}
@@ -756,7 +756,7 @@ const handleShareJob = async () => {
                 <div className="flex items-center gap-4 mb-5">
                   <div className="w-14 h-14 bg-muted rounded-xl flex items-center justify-center overflow-hidden border border-border/50">
                     {job.companies.logo_url ? (
-                      <img src={job.companies.logo_url} alt={job.companies.name} className="w-10 h-10 object-contain" />
+                      <img src={job.companies.logo_url}  loading="lazy" alt={job.companies.name} className="w-10 h-10 object-contain" />
                     ) : (
                       <Building2 className="h-7 w-7 text-muted-foreground" />
                     )}
@@ -791,7 +791,7 @@ const handleShareJob = async () => {
             <div className="flex items-center gap-3 p-4 bg-muted/50 rounded-xl border border-border">
               <div className="w-11 h-11 bg-card rounded-xl flex items-center justify-center overflow-hidden border border-border/50">
                 {job.companies?.logo_url ? (
-                  <img src={job.companies.logo_url} alt={job.companies?.name} className="w-7 h-7 object-contain" />
+                  <img src={job.companies.logo_url}  loading="lazy" alt={job.companies?.name} className="w-7 h-7 object-contain" />
                 ) : (
                   <Building2 className="h-5 w-5 text-muted-foreground" />
                 )}

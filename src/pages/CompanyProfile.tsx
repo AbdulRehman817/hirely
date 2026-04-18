@@ -99,7 +99,7 @@ const CompanyProfile = () => {
               <div className="flex flex-col md:flex-row gap-6">
                 <div className="w-24 h-24 bg-secondary rounded-lg flex items-center justify-center shrink-0 overflow-hidden">
                   {company.logo_url ? (
-                    <img
+                    <img  loading="lazy"
                       src={company.logo_url}
                       alt={company.name}
                       className="w-16 h-16 object-contain"

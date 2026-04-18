@@ -33,7 +33,7 @@ const Employers = () => {
 
   // Transform database companies
   const transformedCompanies = dbCompanies.map((company) => ({
-    id: company.id,
+    id: company.$id,
     name: company.name,
     logo: company.logo_url || null,
     location: company.location || "Location not specified",
@@ -115,7 +115,7 @@ const Employers = () => {
               >
                 <div className="w-16 h-16 bg-secondary rounded-lg flex items-center justify-center mx-auto mb-4 overflow-hidden">
                   {company.logo && company.logo.startsWith("http") ? (
-                    <img
+                    <img  loading="lazy"
                       src={company.logo}
                       alt={company.name}
                       className="w-10 h-10 object-contain"

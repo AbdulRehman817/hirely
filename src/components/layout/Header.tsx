@@ -190,6 +190,7 @@ const Header = () => {
                           <img
                             src={getAvatarUrl(profile?.avatar_url) ?? ""}
                             alt=""
+                             loading="lazy"
                             className="h-9 w-9 rounded-full object-cover"
                           />
                         ) : (
@@ -295,6 +296,7 @@ const Header = () => {
                     {getAvatarUrl(profile?.avatar_url) ? (
                       <img
                         src={getAvatarUrl(profile?.avatar_url) ?? ""}
+                         loading="lazy"
                         alt=""
                         className="h-10 w-10 rounded-full object-cover"
                       />

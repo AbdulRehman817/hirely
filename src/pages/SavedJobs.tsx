@@ -141,7 +141,7 @@ const SavedJobs = () => {
                       {/* Company logo */}
                       <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border bg-muted">
                         {savedJob.jobs?.companies?.logo_url ? (
-                          <img
+                          <img  loading="lazy"
                             src={savedJob.jobs.companies.logo_url}
                             alt={savedJob.jobs.companies.name}
                             className="h-9 w-9 object-contain"

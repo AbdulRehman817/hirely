@@ -120,7 +120,7 @@ const CandidateDashboard = () => {
             <div className="flex items-center gap-6">
               <div className="w-20 h-20 rounded-2xl bg-card border-2 border-border flex items-center justify-center shadow-md">
                 {profile?.avatar_url ? (
-                  <img src={profile.avatar_url} alt="" className="w-20 h-20 rounded-2xl object-cover" />
+                  <img src={profile.avatar_url}  loading="lazy" alt="" className="w-20 h-20 rounded-2xl object-cover" />
                 ) : (
                   <User className="h-10 w-10 text-primary" />
                 )}

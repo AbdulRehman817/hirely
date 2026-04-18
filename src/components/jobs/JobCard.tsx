@@ -26,7 +26,7 @@ const JobCard = ({ job }: JobCardProps) => {
               <div className="mb-3 flex items-start gap-3">
                 <div className="mt-0.5 h-11 w-11 rounded-xl border border-border/80 bg-muted/80 flex items-center justify-center overflow-hidden">
                   {job.companyLogo ? (
-                    <img
+                    <img  loading="lazy"
                       src={job.companyLogo}
                       alt={job.company}
                       className="h-full w-full object-contain"

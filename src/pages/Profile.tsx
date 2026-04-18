@@ -291,6 +291,7 @@ const Profile = () => {
                       <img
                         src={getAvatarUrl(profile?.avatar_url) ?? ""}
                         alt=""
+                         loading="lazy"
                         className="w-32 h-32 rounded-full object-cover"
                       />
                     ) : (

@@ -47,6 +47,7 @@ const TestimonialCard = ({ testimonials }: TestimonialCardProps) => {
             {/* Author */}
             <div className="flex items-center gap-3">
               <img
+               loading="lazy"
                 src={testimonial.avatar}
                 alt={testimonial.name}
                 className="w-12 h-12 rounded-full object-cover"

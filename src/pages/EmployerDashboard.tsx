@@ -360,7 +360,7 @@ const EmployerDashboard = () => {
                 <div className="flex items-start gap-4">
                  <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
                     {getAvatarUrl(applicantDetail.profiles?.avatar_url) ? (
-                      <img
+                      <img  loading="lazy"
                         src={getAvatarUrl(applicantDetail.profiles?.avatar_url) ?? ""}
                         alt={applicantDetail.profiles?.full_name || "Applicant"}
                         className="h-full w-full object-cover"
@@ -541,7 +541,7 @@ Applied {formatDistanceToNow(new Date(applicantDetail.applied_at || applicantDet
             <div className="flex items-center gap-4">
               <div className="w-16 h-16 rounded-2xl bg-card border border-border flex items-center justify-center shadow-sm">
                 {companies[0]?.logo_url ? (
-                  <img src={companies[0].logo_url} alt="" className="w-16 h-16 rounded-2xl object-cover" />
+                  <img src={companies[0].logo_url}  loading="lazy" alt="" className="w-16 h-16 rounded-2xl object-cover" />
                 ) : (
                   <Building2 className="h-8 w-8 text-primary" />
                 )}
