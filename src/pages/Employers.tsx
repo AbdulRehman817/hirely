@@ -6,7 +6,6 @@ import Layout from "@/components/layout/Layout";
 import PageLoader from "@/components/layout/PageLoader";
 import { useCompanies } from "@/hooks/useCompanies";
 import { useSeo } from "@/hooks/useSeo";
-import { topCompanies as mockCompanies } from "@/data/mockData";
 import { BRAND_NAME } from "@/lib/brand";
 
 const Employers = () => {
@@ -32,7 +31,7 @@ const Employers = () => {
   });
 
   // Transform database companies
-  const transformedCompanies = dbCompanies.map((company) => ({
+  const companies = dbCompanies.map((company) => ({
     id: company.$id,
     name: company.name,
     logo: company.logo_url || null,
@@ -41,20 +40,6 @@ const Employers = () => {
     featured: company.featured || false,
     industry: company.industry,
   }));
-
-  // Extended mock company list for fallback
-  const extendedMockCompanies = [
-    ...mockCompanies,
-    { id: "7", name: "Twitter", logo: "🐦", location: "San Francisco, USA", openPositions: 5, featured: true },
-    { id: "8", name: "Slack", logo: "💬", location: "San Francisco, USA", openPositions: 2 },
-    { id: "9", name: "Spotify", logo: "🎵", location: "Stockholm, Sweden", openPositions: 4, featured: true },
-    { id: "10", name: "Airbnb", logo: "🏠", location: "San Francisco, USA", openPositions: 6 },
-    { id: "11", name: "Pinterest", logo: "📌", location: "San Francisco, USA", openPositions: 3 },
-    { id: "12", name: "LinkedIn", logo: "💼", location: "Sunnyvale, USA", openPositions: 8, featured: true },
-  ];
-
-  // Use database companies if available, otherwise fallback to mock
-  const companies = transformedCompanies.length > 0 ? transformedCompanies : extendedMockCompanies;
 
   return (
     <Layout>
@@ -115,7 +100,7 @@ const Employers = () => {
               >
                 <div className="w-16 h-16 bg-secondary rounded-lg flex items-center justify-center mx-auto mb-4 overflow-hidden">
                   {company.logo && company.logo.startsWith("http") ? (
-                    <img  loading="lazy"
+                    <img loading="lazy"
                       src={company.logo}
                       alt={company.name}
                       className="w-10 h-10 object-contain"
@@ -148,4 +133,3 @@ const Employers = () => {
 };
 
 export default Employers;
-
