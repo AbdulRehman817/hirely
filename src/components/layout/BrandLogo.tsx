@@ -22,7 +22,7 @@ const BrandLogo = ({
     <div className={cn("flex items-center gap-2.5 shrink-0", className)}>
       <span
         className={cn(
-          "relative block h-10 w-10 overflow-hidden rounded-lg",
+          "relative block h-10 w-10 rounded-lg",
           imageWrapperClassName
         )}
       >
@@ -31,7 +31,7 @@ const BrandLogo = ({
           alt={`${BRAND_NAME} logo`}
            loading="lazy"
           className={cn(
-            "h-full w-full object-cover object-center scale-[2.1]",
+            "h-full w-[42px] relative bottom-[6px] right-[12px] object-contain object-center scale-[1.8]",
             imageClassName
           )}
         />
