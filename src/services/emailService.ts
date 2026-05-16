@@ -4,9 +4,9 @@ const client = new Client()
   .setEndpoint(import.meta.env.VITE_APPWRITE_ENDPOINT)
   .setProject(import.meta.env.VITE_APPWRITE_PROJECT_ID);
 
-const functions = new Functions(client);
-
 const FUNCTION_ID = import.meta.env.VITE_APPWRITE_EMAIL_FUNCTION_ID;
+const ENDPOINT = import.meta.env.VITE_APPWRITE_ENDPOINT;
+const PROJECT_ID = import.meta.env.VITE_APPWRITE_PROJECT_ID;
 
 export type NotificationType =
   | "shortlisted"
@@ -21,25 +21,30 @@ interface EmailPayload {
   data: Record<string, any>;
 }
 
-/**
- * Send email using Appwrite Function
- */
-const sendEmailViaBackend = async (
-  
-  payload: EmailPayload
-): Promise<boolean> => {
-  console.log('📧 Sending email:', payload); // add this
+const sendEmailViaBackend = async (payload: EmailPayload): Promise<boolean> => {
   if (!FUNCTION_ID) {
     console.warn("Email function ID not configured.");
     return false;
   }
 
   try {
-    await functions.createExecution(
-      FUNCTION_ID,
-      JSON.stringify(payload)
+    console.log("Sending email:", payload);
+
+    // ✅ Use fetch directly to avoid isBigNumber bug
+    const response = await fetch(
+      `${ENDPOINT}/functions/${FUNCTION_ID}/executions`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Appwrite-Project": PROJECT_ID,
+        },
+        body: JSON.stringify({ body: JSON.stringify(payload) }),
+        credentials: "include",
+      }
     );
 
+    const result = await response.json();
     console.log(`✅ ${payload.type} email sent to ${payload.to}`);
     return true;
   } catch (error) {
@@ -58,12 +63,7 @@ export const sendShortlistedEmail = async (
   await sendEmailViaBackend({
     to: candidateEmail,
     type: "shortlisted",
-    data: {
-      candidateName,
-      jobTitle,
-      companyName,
-      jobId,
-    },
+    data: { candidateName, jobTitle, companyName, jobId },
   });
 };
 
@@ -76,11 +76,7 @@ export const sendRejectedEmail = async (
   await sendEmailViaBackend({
     to: candidateEmail,
     type: "rejected",
-    data: {
-      candidateName,
-      jobTitle,
-      companyName,
-    },
+    data: { candidateName, jobTitle, companyName },
   });
 };
 
@@ -93,11 +89,7 @@ export const sendHiredEmail = async (
   await sendEmailViaBackend({
     to: candidateEmail,
     type: "hired",
-    data: {
-      candidateName,
-      jobTitle,
-      companyName,
-    },
+    data: { candidateName, jobTitle, companyName },
   });
 };
 
@@ -112,13 +104,7 @@ export const sendApplicationReceivedEmail = async (
   await sendEmailViaBackend({
     to: recruiterEmail,
     type: "application_received",
-    data: {
-      recruiterName,
-      candidateName,
-      candidateEmail,
-      jobTitle,
-      companyName,
-    },
+    data: { recruiterName, candidateName, candidateEmail, jobTitle, companyName },
   });
 };
 
@@ -131,10 +117,6 @@ export const sendApplicationSubmittedEmail = async (
   await sendEmailViaBackend({
     to: candidateEmail,
     type: "application_submitted",
-    data: {
-      candidateName,
-      jobTitle,
-      companyName,
-    },
+    data: { candidateName, jobTitle, companyName },
   });
 };
