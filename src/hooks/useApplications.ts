@@ -612,8 +612,7 @@ export const useApplyForJob = () => {
           grantRecruiterReadAccessToProfile(user.id, recruiterUserId),
           grantRecruiterReadAccessToResume(user.id, recruiterUserId, resolvedResumeUrl),
         ]);
-
-        return application as JobApplication;
+return application as unknown as JobApplication;
       } catch (error) {
         console.error("useApplyForJob: Error applying for job:", error);
         throw error;
