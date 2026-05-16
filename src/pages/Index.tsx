@@ -8,6 +8,7 @@ import JobCard from "@/components/jobs/JobCard";
 import { useJobs } from "@/hooks/useJobs";
 import { useSeo } from "@/hooks/useSeo";
 import { useAuth } from "@/contexts/AuthContext";
+import { BRAND_LOGO_PATH, BRAND_SITE_URL, toAbsoluteUrl } from "@/lib/brand";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -22,9 +23,8 @@ const Index = () => {
       ? jobsError.message
       : "Unable to load jobs right now. Please try again.";
 
-  const origin = typeof window !== "undefined" ? window.location.origin : "";
-  const homeCanonical = origin ? `${origin}/` : undefined;
-  const homeImage = origin ? `${origin}/logo.png` : undefined;
+  const homeCanonical = `${BRAND_SITE_URL}/`;
+  const homeImage = toAbsoluteUrl(BRAND_LOGO_PATH);
   const steps = [
   {
     icon: Search,
@@ -58,16 +58,15 @@ const Index = () => {
   },
 ];
 
-  const structuredData = origin
-    ? [
+  const structuredData = [
         {
           "@context": "https://schema.org",
           "@type": "WebSite",
           name: "Hirelypk",
-          url: origin,
+          url: BRAND_SITE_URL,
           potentialAction: {
             "@type": "SearchAction",
-            target: `${origin}/find-jobs?q={search_term_string}`,
+            target: `${BRAND_SITE_URL}/find-jobs?q={search_term_string}`,
             "query-input": "required name=search_term_string",
           },
         },
@@ -75,19 +74,18 @@ const Index = () => {
           "@context": "https://schema.org",
           "@type": "Organization",
           name: "Hirelypk",
-          url: origin,
-          logo: homeImage || `${origin}/logo.png`,
+          url: BRAND_SITE_URL,
+          logo: homeImage,
         },
         {
           "@context": "https://schema.org",
           "@type": "WebPage",
           name: "Hirelypk Home",
-          url: homeCanonical || origin,
+          url: homeCanonical,
           description:
             "Browse thousands of jobs from top companies. Sign in, apply on Hirelypk, or use optional direct apply when enabled by recruiters.",
         },
-      ]
-    : undefined;
+      ];
 
   useSeo({
     title: "Find Your Next Dream Job",

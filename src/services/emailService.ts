@@ -25,8 +25,10 @@ interface EmailPayload {
  * Send email using Appwrite Function
  */
 const sendEmailViaBackend = async (
+  
   payload: EmailPayload
 ): Promise<boolean> => {
+  console.log('📧 Sending email:', payload); // add this
   if (!FUNCTION_ID) {
     console.warn("Email function ID not configured.");
     return false;

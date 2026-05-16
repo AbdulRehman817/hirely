@@ -9,7 +9,7 @@ export const BRAND_LINKEDIN_URL = "https://www.linkedin.com/company/hirelypk";
 export const BRAND_WHATSAPP_COMMUNITY_URL =
   "https://chat.whatsapp.com/BZ6TwCE0esh89aw3KAnGnx";
 
-const SITE_URL_FALLBACK = "https://hirelypk.com";
+const SITE_URL_FALLBACK = "https://www.hirelypk.com";
 
 export const BRAND_SITE_URL = (
   import.meta.env.VITE_SITE_URL || SITE_URL_FALLBACK

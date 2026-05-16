@@ -6,21 +6,18 @@ import Layout from "@/components/layout/Layout";
 import PageLoader from "@/components/layout/PageLoader";
 import { useCompanies } from "@/hooks/useCompanies";
 import { useSeo } from "@/hooks/useSeo";
-import { BRAND_NAME } from "@/lib/brand";
+import { BRAND_NAME, BRAND_SITE_URL } from "@/lib/brand";
 
 const Employers = () => {
   const { data: dbCompanies = [], isLoading } = useCompanies();
-  const origin = typeof window !== "undefined" ? window.location.origin : "";
-  const canonical = origin ? `${origin}/employers` : undefined;
-  const structuredData = canonical
-    ? {
+  const canonical = `${BRAND_SITE_URL}/employers`;
+  const structuredData = {
         "@context": "https://schema.org",
         "@type": "CollectionPage",
         name: `${BRAND_NAME} Employers`,
         description: "Explore hiring companies and open opportunities.",
         url: canonical,
-      }
-    : undefined;
+      };
 
   useSeo({
     title: "Employers",

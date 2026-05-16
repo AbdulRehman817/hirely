@@ -18,6 +18,8 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { sendApplicationReceivedEmail,  sendApplicationSubmittedEmail 
+ } from "@/services/emailService";
 import {
   Dialog,
   DialogContent,
@@ -42,6 +44,8 @@ import { format, formatDistanceToNow } from "date-fns";
 import { normalizeJobType } from "@/lib/jobType";
 import { dispatchFeedbackNudge } from "@/lib/feedbackPrompt";
 import { cn } from "@/lib/utils";
+import { COLLECTIONS, DATABASE_ID, databases, Query } from "@/lib/appwrite";
+import { BRAND_SITE_URL } from "@/lib/brand";
 
 const TAG_LINE_REGEX = /\n?\s*Tags:\s*.+$/i;
 
@@ -158,13 +162,12 @@ const JobDetails = () => {
   const { mutateAsync: incrementJobViews } = useIncrementJobViews();
   const requiresSignInForSave = !user;
 
-  const origin = typeof window !== "undefined" ? window.location.origin : "";
   const companyName = job?.companies?.name || job?.company || "Company";
   const jobTitle = job?.title ? `${job.title} at ${companyName}` : "Job Details";
   const descriptionSnippet = job?.description
     ? stripTagsLineFromDescription(job.description).replace(/\s+/g, " ").slice(0, 160).trim()
     : "View job details and apply on Hirelypk.";
-  const jobUrl = job && origin ? `${origin}/job/${job.$id}` : "";
+  const jobUrl = job ? `${BRAND_SITE_URL}/job/${job.$id}` : "";
 
   const employmentTypeMap: Record<string, string> = {
     "full-time": "FULL_TIME", "part-time": "PART_TIME",
@@ -174,7 +177,7 @@ const JobDetails = () => {
   const normalizedJobType = normalizeJobType(job?.type);
   const hasSalary = job?.salary_min || job?.salary_max;
 
-  const structuredData = job && origin ? {
+  const structuredData = job ? {
     "@context": "https://schema.org",
     "@type": "JobPosting",
     title: job.title,
@@ -253,21 +256,65 @@ const JobDetails = () => {
       .catch(() => {});
   }, [incrementJobViews, job?.$id, job?.view_count]);
 
-  const handleApply = async () => {
-    try {
-      await applyForJob.mutateAsync({
-        jobId: id!,
-        coverLetter: coverLetter || undefined,
-        resumeUrl: profile?.resume_url || undefined,
-      });
-      toast({ title: "Application submitted! ✅", description: "The recruiter will review your application." });
-      dispatchFeedbackNudge({ source: "application_submitted", route: location.pathname });
-      setShowApplyModal(false);
-      setCoverLetter("");
-    } catch (error: any) {
-      toast({ title: "Application failed", description: error.message || "Failed to submit", variant: "destructive" });
+ const handleApply = async () => {
+  try {
+    await applyForJob.mutateAsync({
+      jobId: id!,
+      coverLetter: coverLetter || undefined,
+      resumeUrl: profile?.resume_url || undefined,
+    });
+
+    // Send emails in background - don't block the user
+  (async () => {
+  try {
+    const { documents } = await databases.listDocuments(
+      DATABASE_ID,
+      COLLECTIONS.PROFILES,
+      [Query.equal("user_id", job.user_id), Query.limit(1)]
+    );
+    console.log("Recruiter search result:", documents, "searching for user_id:", job.user_id);
+    const recruiterProfile = documents[0];
+    const recruiterEmail = recruiterProfile?.email;
+    const recruiterName = recruiterProfile?.full_name || "Recruiter";
+
+    if (recruiterEmail) {
+      await sendApplicationReceivedEmail(
+        recruiterEmail,
+        recruiterName,
+        profile?.full_name || "A Candidate",
+        user?.email || "",
+        job.title,
+        companyName
+      );
+    } else {
+      console.warn("No recruiter email found");
     }
-  };
+  } catch (e) {
+    console.warn("Recruiter notification email failed:", e);
+  }
+
+  try {
+    if (user?.email) {
+      await sendApplicationSubmittedEmail(
+        user.email,
+        profile?.full_name || "Candidate",
+        job.title,
+        companyName
+      );
+    }
+  } catch (e) {
+    console.warn("Candidate confirmation email failed:", e);
+  }
+})();
+
+    toast({ title: "Application submitted! ✅", description: "The recruiter will review your application." });
+    dispatchFeedbackNudge({ source: "application_submitted", route: location.pathname });
+    setShowApplyModal(false);
+    setCoverLetter("");
+  } catch (error: any) {
+    toast({ title: "Application failed", description: error.message || "Failed to submit", variant: "destructive" });
+  }
+};
 
   const copyShareMessage = async (shareMessage: string) => {
     try {
@@ -284,7 +331,7 @@ const JobDetails = () => {
 
 const handleShareJob = async () => {
 
-    const shareUrl = `${window.location.origin}/#/job/${job.$id}`;
+    const shareUrl = `${BRAND_SITE_URL}/#/job/${job.$id}`;
       const postedOn = format(new Date(job.posted_date), "dd MMM yyyy");
 
   const cleanedDescription = stripTagsLineFromDescription(job.description)

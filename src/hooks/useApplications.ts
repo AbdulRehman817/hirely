@@ -66,7 +66,6 @@ const USER_FIELD_CANDIDATES = ["user_id", "userId", "userid"] as const;
 const JOB_FIELD_CANDIDATES = ["job_id", "jobId", "jobid"] as const;
 const COMPANY_FIELD_CANDIDATES = ["company_id", "companyId", "companyid"] as const;
 
-// Validate if a string is a valid Appwrite user ID format (alphanumeric, hyphens, underscores)
 const isValidAppwriteId = (id: string | null | undefined): boolean => {
   if (!id) return false;
   const trimmed = String(id || "").trim();
@@ -100,22 +99,12 @@ const mergePermissions = (...groups: Array<string[] | undefined>) =>
   Array.from(new Set(groups.flatMap((group) => group || []).filter(Boolean)));
 
 const buildNotificationPermissions = (userId: string) => {
-  // Use only universal permissions for notifications to avoid authorization issues
-  // All authenticated users can read notifications
   return [Permission.read(Role.users())];
 };
 
 const buildApplicationPermissions = (candidateUserId: string, recruiterUserId: string) => {
-  // Use only the permissions that Appwrite will accept
-  // The recruiter user ID from the job may not be authorized in this context,
-  // so we use universal permissions instead
-  
   const permissions: string[] = [];
-  
-  // Allow all authenticated users to read (recruiters can read via Role.users())
   permissions.push(Permission.read(Role.users()));
-  
-  // If we have a valid candidate ID, give them additional permissions
   if (isValidAppwriteId(candidateUserId)) {
     try {
       const candidateId = String(candidateUserId).trim();
@@ -126,18 +115,13 @@ const buildApplicationPermissions = (candidateUserId: string, recruiterUserId: s
       console.warn("Failed to add candidate permissions:", e);
     }
   }
-  
   console.log("Application permissions:", permissions);
   return permissions;
 };
 
 const buildProfilePermissions = (candidateUserId: string, recruiterUserId?: string | null) => {
   const permissions: string[] = [];
-  
-  // Start with universal read permission for all authenticated users
   permissions.push(Permission.read(Role.users()));
-  
-  // Candidate can manage their own profile
   if (isValidAppwriteId(candidateUserId)) {
     try {
       const candidateId = String(candidateUserId).trim();
@@ -148,17 +132,12 @@ const buildProfilePermissions = (candidateUserId: string, recruiterUserId?: stri
       console.warn("Failed to add candidate profile permissions:", e);
     }
   }
-  
   return permissions;
 };
 
 const buildResumePermissions = (candidateUserId: string, recruiterUserId?: string | null) => {
   const permissions: string[] = [];
-  
-  // Start with universal read permission for all authenticated users
   permissions.push(Permission.read(Role.users()));
-  
-  // Candidate can manage their own resume
   if (isValidAppwriteId(candidateUserId)) {
     try {
       const candidateId = String(candidateUserId).trim();
@@ -169,61 +148,43 @@ const buildResumePermissions = (candidateUserId: string, recruiterUserId?: strin
       console.warn("Failed to add candidate resume permissions:", e);
     }
   }
-  
   return permissions;
 };
 
 const fetchAllAccessibleApplications = async (): Promise<JobApplication[]> => {
   const results: JobApplication[] = [];
   let offset = 0;
-
   while (true) {
     const { documents } = await databases.listDocuments(
       DATABASE_ID,
       COLLECTIONS.JOB_APPLICATIONS,
       [Query.limit(APPLICATION_BATCH_SIZE), Query.offset(offset)]
     );
-
     results.push(...(documents as unknown as JobApplication[]));
-
-    if (documents.length < APPLICATION_BATCH_SIZE) {
-      break;
-    }
-
+    if (documents.length < APPLICATION_BATCH_SIZE) break;
     offset += APPLICATION_BATCH_SIZE;
   }
-
   return results;
 };
 
 const fetchAllAccessibleProfiles = async () => {
   const results: any[] = [];
   let offset = 0;
-
   while (true) {
     const { documents } = await databases.listDocuments(
       DATABASE_ID,
       COLLECTIONS.PROFILES,
       [Query.limit(APPLICATION_BATCH_SIZE), Query.offset(offset)]
     );
-
     results.push(...documents);
-
-    if (documents.length < APPLICATION_BATCH_SIZE) {
-      break;
-    }
-
+    if (documents.length < APPLICATION_BATCH_SIZE) break;
     offset += APPLICATION_BATCH_SIZE;
   }
-
   return results;
 };
 
 const fetchProfileDocumentByUserId = async (userId: string) => {
-  if (!userId) {
-    return null;
-  }
-
+  if (!userId) return null;
   try {
     const { documents } = await databases.listDocuments(DATABASE_ID, COLLECTIONS.PROFILES, [
       Query.equal("user_id", userId),
@@ -240,10 +201,7 @@ const fetchProfileDocumentByUserId = async (userId: string) => {
 };
 
 const fetchCompanyDocumentById = async (companyId: string) => {
-  if (!companyId) {
-    return null;
-  }
-
+  if (!companyId) return null;
   try {
     return await databases.getDocument(DATABASE_ID, COLLECTIONS.COMPANIES, companyId);
   } catch {
@@ -253,22 +211,46 @@ const fetchCompanyDocumentById = async (companyId: string) => {
 
 const getCompanyNameForJob = async (job: Record<string, any>) => {
   const companyId = getJobCompanyId(job);
-  if (!companyId) {
-    return "your company";
-  }
-
+  if (!companyId) return "your company";
   const company = await fetchCompanyDocumentById(companyId);
   return company?.name || "your company";
 };
 
+// ✅ FIXED: Query by user_id field instead of document ID
 const getRecruiterProfile = async (recruiterId: string) => {
+  if (!recruiterId) return null;
+
   try {
-    const profile = await databases.getDocument(
+    // First try: query by user_id field
+    const { documents } = await databases.listDocuments(
       DATABASE_ID,
       COLLECTIONS.PROFILES,
-      recruiterId
+      [Query.equal("user_id", recruiterId), Query.limit(1)]
     );
-    return profile;
+
+    if (documents.length > 0) {
+      console.log("✅ Recruiter profile found:", documents[0]);
+      console.log("✅ Recruiter email:", documents[0]?.email);
+      return documents[0];
+    }
+
+    // Second try: scan all profiles as fallback
+    console.warn("Recruiter not found via query, trying full scan...");
+    const allProfiles = await fetchAllAccessibleProfiles();
+    const found = allProfiles.find((doc) =>
+      USER_FIELD_CANDIDATES.some(
+        (field) => String((doc as any)?.[field] || "").trim() === recruiterId
+      )
+    );
+
+    if (found) {
+      console.log("✅ Recruiter profile found via scan:", found);
+      console.log("✅ Recruiter email:", found?.email);
+    } else {
+      console.warn("❌ Recruiter profile not found for ID:", recruiterId);
+    }
+
+    return found ?? null;
   } catch (error) {
     console.error("Error fetching recruiter profile:", error);
     return null;
@@ -282,9 +264,7 @@ const hydrateApplicationWithJobData = async (
 ): Promise<JobApplication> => {
   const jobId = getApplicationJobId(application);
   const applicantUserId = getApplicationUserId(application);
-  if (!jobId) {
-    return application;
-  }
+  if (!jobId) return application;
 
   try {
     let job = jobCache.get(jobId);
@@ -295,12 +275,9 @@ const hydrateApplicationWithJobData = async (
 
     const companyId = getJobCompanyId(job);
     let company = companyId ? companyCache.get(companyId) : null;
-
     if (companyId && !company) {
       company = await fetchCompanyDocumentById(companyId);
-      if (company) {
-        companyCache.set(companyId, company);
-      }
+      if (company) companyCache.set(companyId, company);
     }
 
     return {
@@ -315,11 +292,7 @@ const hydrateApplicationWithJobData = async (
         salary_min: job.salary_min,
         salary_max: job.salary_max,
         companies: company
-          ? {
-              id: company.$id,
-              name: company.name,
-              logo_url: company.logo_url || null,
-            }
+          ? { id: company.$id, name: company.name, logo_url: company.logo_url || null }
           : undefined,
       },
     };
@@ -335,9 +308,7 @@ const hydrateApplicationWithProfileData = async (
 ): Promise<JobApplication> => {
   const applicantUserId = getApplicationUserId(application);
   const jobId = getApplicationJobId(application);
-  if (!applicantUserId) {
-    return application;
-  }
+  if (!applicantUserId) return application;
 
   try {
     let profileDocument = profileCache.get(applicantUserId);
@@ -347,11 +318,7 @@ const hydrateApplicationWithProfileData = async (
     }
 
     if (!profileDocument) {
-      return {
-        ...application,
-        job_id: jobId || application.job_id,
-        user_id: applicantUserId,
-      };
+      return { ...application, job_id: jobId || application.job_id, user_id: applicantUserId };
     }
 
     return {
@@ -376,49 +343,32 @@ const hydrateApplicationWithProfileData = async (
     };
   } catch (error) {
     console.error("useJobApplications: Error hydrating applicant profile:", application.$id, error);
-    return {
-      ...application,
-      job_id: jobId || application.job_id,
-      user_id: applicantUserId,
-    };
+    return { ...application, job_id: jobId || application.job_id, user_id: applicantUserId };
   }
 };
 
 const buildApplicationStats = (applications: JobApplication[]): ApplicationStats => ({
   total: applications.length,
-  pending: applications.filter((application) => application.status === "pending").length,
-  reviewed: applications.filter((application) => application.status === "reviewed").length,
-  shortlisted: applications.filter((application) => application.status === "shortlisted").length,
-  rejected: applications.filter((application) => application.status === "rejected").length,
-  hired: applications.filter((application) => application.status === "hired").length,
+  pending: applications.filter((a) => a.status === "pending").length,
+  reviewed: applications.filter((a) => a.status === "reviewed").length,
+  shortlisted: applications.filter((a) => a.status === "shortlisted").length,
+  rejected: applications.filter((a) => a.status === "rejected").length,
+  hired: applications.filter((a) => a.status === "hired").length,
 });
 
 const grantRecruiterReadAccessToProfile = async (
   candidateUserId: string,
   recruiterUserId: string
 ) => {
-  if (!candidateUserId || !recruiterUserId || candidateUserId === recruiterUserId) {
-    return;
-  }
-
+  if (!candidateUserId || !recruiterUserId || candidateUserId === recruiterUserId) return;
   try {
     const profileDocument = await fetchProfileDocumentByUserId(candidateUserId);
-    if (!profileDocument) {
-      return;
-    }
-
+    if (!profileDocument) return;
     const permissions = mergePermissions(
       profileDocument.$permissions,
       buildProfilePermissions(candidateUserId, recruiterUserId)
     );
-
-    await databases.updateDocument(
-      DATABASE_ID,
-      COLLECTIONS.PROFILES,
-      profileDocument.$id,
-      {},
-      permissions
-    );
+    await databases.updateDocument(DATABASE_ID, COLLECTIONS.PROFILES, profileDocument.$id, {}, permissions);
   } catch (error) {
     console.warn("Unable to grant recruiter read access to the applicant profile.", error);
   }
@@ -436,9 +386,7 @@ const grantRecruiterReadAccessToResume = async (
     candidateUserId === recruiterUserId ||
     !trimmedResumeFileId ||
     trimmedResumeFileId.startsWith("http")
-  ) {
-    return;
-  }
+  ) return;
 
   try {
     const resumeFile = await storage.getFile(BUCKETS.RESUMES, trimmedResumeFileId);
@@ -446,7 +394,6 @@ const grantRecruiterReadAccessToResume = async (
       resumeFile.$permissions,
       buildResumePermissions(candidateUserId, recruiterUserId)
     );
-
     await storage.updateFile(BUCKETS.RESUMES, trimmedResumeFileId, resumeFile.name, permissions);
   } catch (error) {
     console.warn("Unable to grant recruiter read access to the applicant resume.", error);
@@ -459,10 +406,7 @@ export const useMyApplications = () => {
   return useQuery<JobApplication[]>({
     queryKey: ["my-applications", user?.id],
     queryFn: async () => {
-      if (!user) {
-        return [];
-      }
-
+      if (!user) return [];
       try {
         const allApplications = await fetchAllAccessibleApplications();
         const myApplications = allApplications.filter(
@@ -470,13 +414,11 @@ export const useMyApplications = () => {
         );
         const companyCache = new Map<string, any>();
         const jobCache = new Map<string, any>();
-
         const hydratedApplications = await Promise.all(
           myApplications.map((application) =>
             hydrateApplicationWithJobData(application, jobCache, companyCache)
           )
         );
-
         return sortApplicationsByDate(hydratedApplications);
       } catch (error) {
         console.error("useMyApplications: Error fetching applications:", error);
@@ -489,11 +431,7 @@ export const useMyApplications = () => {
 
 export const useMyApplicationStats = () => {
   const query = useMyApplications();
-
-  return {
-    ...query,
-    data: buildApplicationStats(query.data || []),
-  };
+  return { ...query, data: buildApplicationStats(query.data || []) };
 };
 
 export const useJobApplications = (jobId?: string) => {
@@ -502,23 +440,18 @@ export const useJobApplications = (jobId?: string) => {
   return useQuery<JobApplication[]>({
     queryKey: ["job-applications", jobId],
     queryFn: async () => {
-      if (!jobId || !user) {
-        return [];
-      }
-
+      if (!jobId || !user) return [];
       try {
         const allApplications = await fetchAllAccessibleApplications();
         const matchingApplications = allApplications.filter(
           (application) => getApplicationJobId(application as Record<string, any>) === jobId
         );
         const profileCache = new Map<string, any>();
-
         const hydratedApplications = await Promise.all(
           matchingApplications.map((application) =>
             hydrateApplicationWithProfileData(application, profileCache)
           )
         );
-
         return sortApplicationsByDate(hydratedApplications);
       } catch (error) {
         console.error("useJobApplications: Error fetching job applications:", error);
@@ -535,10 +468,7 @@ export const useEmployerApplications = (jobIds?: string[]) => {
   return useQuery<JobApplication[]>({
     queryKey: ["employer-applications", user?.id, ...(jobIds || [])],
     queryFn: async () => {
-      if (!user || !jobIds?.length) {
-        return [];
-      }
-
+      if (!user || !jobIds?.length) return [];
       try {
         const ownedJobIds = new Set(uniqueStrings(jobIds));
         const allApplications = await fetchAllAccessibleApplications();
@@ -546,13 +476,11 @@ export const useEmployerApplications = (jobIds?: string[]) => {
           ownedJobIds.has(getApplicationJobId(application as Record<string, any>))
         );
         const profileCache = new Map<string, any>();
-
         const hydratedApplications = await Promise.all(
           matchingApplications.map((application) =>
             hydrateApplicationWithProfileData(application, profileCache)
           )
         );
-
         return sortApplicationsByDate(hydratedApplications);
       } catch (error) {
         console.error("useEmployerApplications: Error fetching employer applications:", error);
@@ -577,22 +505,17 @@ export const useApplyForJob = () => {
       coverLetter?: string;
       resumeUrl?: string;
     }) => {
-      if (!user) {
-        throw new Error("You must be signed in to apply.");
-      }
-
-      if (profile?.role === "employer") {
-        throw new Error("Recruiters cannot apply for jobs.");
-      }
+      if (!user) throw new Error("You must be signed in to apply.");
+      if (profile?.role === "employer") throw new Error("Recruiters cannot apply for jobs.");
 
       try {
         const job = await databases.getDocument(DATABASE_ID, COLLECTIONS.JOBS, jobId);
         const recruiterUserId = String(getJobOwnerId(job as Record<string, any>) || "").trim();
-        
+
         console.log("Job found:", { jobId, recruiterUserId, fullJob: job });
 
         if (!recruiterUserId) {
-          console.warn("No recruiter ID found for job, will use authenticated user permissions only");
+          console.warn("No recruiter ID found for job");
         }
 
         if (String(job.status || "").toLowerCase() !== "active") {
@@ -606,9 +529,7 @@ export const useApplyForJob = () => {
             getApplicationJobId(application as Record<string, any>) === jobId
         );
 
-        if (alreadyApplied) {
-          throw new Error("You have already applied for this job.");
-        }
+        if (alreadyApplied) throw new Error("You have already applied for this job.");
 
         const resolvedResumeUrl = resumeUrl || profile?.resume_url || null;
         const application = await databases.createDocument(
@@ -645,21 +566,41 @@ export const useApplyForJob = () => {
           buildNotificationPermissions(recruiterUserId)
         );
 
-        // Send email notifications (fire and forget)
-        // Email to recruiter about new application
-        const recruiterProfile = await getRecruiterProfile(recruiterUserId).catch(() => null);
-        if (recruiterProfile?.email) {
-          sendApplicationReceivedEmail(
-            recruiterProfile.email,
-            recruiterProfile.full_name || "Recruiter",
-            applicantName,
-            user.email || "N/A",
-            job.title,
-            companyName
-          ).catch(console.error);
-        }
+        // ✅ Send recruiter email with full fallback chain
+        (async () => {
+          try {
+            const recruiterProfile = await getRecruiterProfile(recruiterUserId);
 
-        // Confirmation email to candidate
+            // Fallback chain: profile email → company email → nothing
+            const recruiterEmail =
+              recruiterProfile?.email ||
+              (job as any)?.companies?.email ||
+              null;
+
+            const recruiterName = recruiterProfile?.full_name || "Recruiter";
+
+            console.log("📧 Recruiter email to use:", recruiterEmail);
+            console.log("📧 Recruiter profile:", recruiterProfile);
+
+            if (recruiterEmail) {
+              await sendApplicationReceivedEmail(
+                recruiterEmail,
+                recruiterName,
+                applicantName,
+                user.email || "N/A",
+                job.title,
+                companyName
+              );
+              console.log("✅ Recruiter notified at:", recruiterEmail);
+            } else {
+              console.warn("❌ No recruiter email found. Profile:", recruiterProfile, "Job:", job);
+            }
+          } catch (e) {
+            console.error("Recruiter email failed:", e);
+          }
+        })();
+
+        // ✅ Send candidate confirmation email
         sendApplicationSubmittedEmail(
           user.email || "",
           applicantName,
@@ -693,10 +634,7 @@ export const useHasApplied = (jobId: string) => {
   return useQuery({
     queryKey: ["has-applied", jobId, user?.id],
     queryFn: async () => {
-      if (!jobId || !user) {
-        return false;
-      }
-
+      if (!jobId || !user) return false;
       try {
         const allApplications = await fetchAllAccessibleApplications();
         return allApplications.some(

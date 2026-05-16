@@ -15,6 +15,7 @@ import PageLoader from "@/components/layout/PageLoader";
 import { useCompany, useCompanyJobs } from "@/hooks/useCompanies";
 import { useSeo } from "@/hooks/useSeo";
 import { useAuth } from "@/contexts/AuthContext";
+import { BRAND_SITE_URL } from "@/lib/brand";
 import { jobTypes } from "@/types";
 
 const CompanyProfile = () => {
@@ -23,7 +24,6 @@ const CompanyProfile = () => {
   const { data: jobs = [], isLoading: jobsLoading } = useCompanyJobs(id || "");
   const { user, userRole } = useAuth();
 
-  const origin = typeof window !== "undefined" ? window.location.origin : "";
   const companyName = company?.name || "Company Profile";
   const companyDescription = company?.description
     ? company.description.replace(/\s+/g, " ").slice(0, 160).trim()
@@ -32,7 +32,7 @@ const CompanyProfile = () => {
   useSeo({
     title: companyName,
     description: companyDescription,
-    canonical: company && origin ? `${origin}/company/${company.$id}` : undefined,
+    canonical: company ? `${BRAND_SITE_URL}/company/${company.$id}` : undefined,
     image: company?.logo_url || undefined,
     type: "profile",
   });

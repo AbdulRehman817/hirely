@@ -101,12 +101,15 @@ export const useSeo = ({
     const resolvedDescription = description || DEFAULT_DESCRIPTION;
     const resolvedKeywords = Array.isArray(keywords) ? keywords.join(", ") : keywords;
     const resolvedCanonical = resolveAbsoluteUrl(canonical);
-    const resolvedUrl = resolvedCanonical || window.location.href || BRAND_SITE_URL;
+    const currentPath =
+      typeof window !== "undefined"
+        ? `${window.location.pathname}${window.location.search}`
+        : "";
+    const resolvedUrl =
+      resolvedCanonical || (currentPath ? `${BRAND_SITE_URL}${currentPath}` : BRAND_SITE_URL);
     const resolvedImage =
       resolveAbsoluteUrl(image) ||
-      (typeof window !== "undefined"
-        ? `${window.location.origin}${BRAND_LOGO_PATH}`
-        : toAbsoluteUrl(BRAND_LOGO_PATH));
+      toAbsoluteUrl(BRAND_LOGO_PATH);
 
     document.title = resolvedTitle;
     upsertMeta("name", "description", resolvedDescription);
