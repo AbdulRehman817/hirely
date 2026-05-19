@@ -688,7 +688,13 @@ const handleShareJob = async () => {
             <div className="bg-card border border-border rounded-2xl p-6">
               <h2 className="text-lg font-bold text-foreground mb-4">Job Description</h2>
               <div className="text-sm text-muted-foreground leading-7 whitespace-pre-line">
-                {descriptionBody}
+                {descriptionBody.split(/(\S+@\S+\.\S+|https?:\/\/\S+)/g).map((part, i) => {
+  if (/\S+@\S+\.\S+/.test(part))
+    return <a key={i} href={`mailto:${part}`} className="text-primary underline underline-offset-2 hover:opacity-80">{part}</a>;
+  if (/^https?:\/\//.test(part))
+    return <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-2 hover:opacity-80">{part}</a>;
+  return part;
+})}
               </div>
             </div>
 
