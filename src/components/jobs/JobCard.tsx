@@ -28,7 +28,8 @@ const JobCard = ({ job }: JobCardProps) => {
                   {job.companyLogo ? (
                     <img  loading="lazy"
                       src={job.companyLogo}
-                      alt={job.company}
+                      alt={`${job.company} logo`}
+                      decoding="async"
                       className="h-full w-full object-contain"
                     />
                   ) : (

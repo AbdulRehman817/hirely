@@ -40,12 +40,13 @@ import { useCandidateProfileCompletion } from "@/hooks/useProfileCompletion";
 import { useToast } from "@/hooks/use-toast";
 import { useSeo } from "@/hooks/useSeo";
 import { jobTypes } from "@/types";
-import { format, formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow } from "date-fns";
 import { normalizeJobType } from "@/lib/jobType";
 import { dispatchFeedbackNudge } from "@/lib/feedbackPrompt";
 import { cn } from "@/lib/utils";
 import { COLLECTIONS, DATABASE_ID, databases, Query } from "@/lib/appwrite";
 import { BRAND_SITE_URL } from "@/lib/brand";
+import { trackJobEngagement } from "@/lib/analytics";
 
 const TAG_LINE_REGEX = /\n?\s*Tags:\s*.+$/i;
 
@@ -98,7 +99,9 @@ const parseTagSource = (value: unknown): string[] => {
     try {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) return dedupeTags(parsed.map((item) => String(item)));
-    } catch {}
+    } catch {
+      // Fall back to delimiter parsing when tag JSON is malformed.
+    }
     return dedupeTags(raw.split(/[\n,]+/));
   }
   return [];
@@ -171,7 +174,7 @@ const JobDetails = () => {
 
   const employmentTypeMap: Record<string, string> = {
     "full-time": "FULL_TIME", "part-time": "PART_TIME",
-    internship: "INTERN", remote: "TELECOMMUTE", contract: "CONTRACTOR",
+    internship: "INTERN", remote: "OTHER", contract: "CONTRACTOR",
   };
 
   const normalizedJobType = normalizeJobType(job?.type);
@@ -181,8 +184,14 @@ const JobDetails = () => {
     "@context": "https://schema.org",
     "@type": "JobPosting",
     title: job.title,
-    description: job.description,
+    description: stripTagsLineFromDescription(job.description),
     datePosted: new Date(job.posted_date).toISOString(),
+    url: jobUrl,
+    identifier: {
+      "@type": "PropertyValue",
+      name: "Hirelypk",
+      value: job.$id,
+    },
     employmentType: employmentTypeMap[normalizedJobType] || "FULL_TIME",
     hiringOrganization: {
       "@type": "Organization",
@@ -191,18 +200,23 @@ const JobDetails = () => {
     },
     jobLocation: {
       "@type": "Place",
-      address: { "@type": "PostalAddress", addressLocality: job.location },
+      address: {
+        "@type": "PostalAddress",
+        addressLocality: job.location,
+        addressCountry: job.currency === "USD" ? "US" : "PK",
+      },
     },
     ...(normalizedJobType === "remote" ? { jobLocationType: "TELECOMMUTE" } : {}),
+    ...(job.expiry_date ? { validThrough: new Date(job.expiry_date).toISOString() } : {}),
     ...(hasSalary ? {
       baseSalary: {
         "@type": "MonetaryAmount",
-        currency: job.currency || "USD",
+        currency: job.currency || "PKR",
         value: {
           "@type": "QuantitativeValue",
           ...(job.salary_min ? { minValue: job.salary_min } : {}),
           ...(job.salary_max ? { maxValue: job.salary_max } : {}),
-          unitText: "YEAR",
+          unitText: "MONTH",
         },
       },
     } : {}),
@@ -213,6 +227,7 @@ const JobDetails = () => {
     description: descriptionSnippet,
     canonical: jobUrl || undefined,
     image: job?.companies?.logo_url || undefined,
+    imageAlt: job?.companies?.name ? `${job.companies.name} logo` : undefined,
     type: "article",
     structuredData,
   });
@@ -224,6 +239,7 @@ const JobDetails = () => {
   const handleApplyRedirect = () => {
     if (!applyLink) return;
     if (!user) { setShowAuthPromptModal(true); return; }
+    trackJobEngagement("outbound_apply", { jobId: job?.$id, jobTitle: job?.title, company: companyName });
     window.open(applyLink, "_blank", "noopener,noreferrer");
   };
 
@@ -238,6 +254,7 @@ const JobDetails = () => {
       return;
     }
 
+    trackJobEngagement("apply_start", { jobId: job?.$id, jobTitle: job?.title, company: companyName });
     setShowApplyModal(true);
   };
 
@@ -307,7 +324,8 @@ const JobDetails = () => {
   }
 })();
 
-    toast({ title: "Application submitted! ✅", description: "The recruiter will review your application." });
+    trackJobEngagement("apply_submit", { jobId: job.$id, jobTitle: job.title, company: companyName });
+    toast({ title: "Application submitted", description: "The recruiter will review your application." });
     dispatchFeedbackNudge({ source: "application_submitted", route: location.pathname });
     setShowApplyModal(false);
     setCoverLetter("");
@@ -323,7 +341,9 @@ const JobDetails = () => {
         toast({ title: "Copied to clipboard", description: "Job details ready to share." });
         return true;
       }
-    } catch {}
+    } catch {
+      // Clipboard access can be blocked by browser permissions.
+    }
     window.prompt("Copy and share this job message:", shareMessage);
     return true;
   };
@@ -331,8 +351,7 @@ const JobDetails = () => {
 
 const handleShareJob = async () => {
 
-    const shareUrl = `${BRAND_SITE_URL}/#/job/${job.$id}`;
-      const postedOn = format(new Date(job.posted_date), "dd MMM yyyy");
+    const shareUrl = `${BRAND_SITE_URL}/job/${job.$id}`;
 
   const cleanedDescription = stripTagsLineFromDescription(job.description)
     .replace(/\s+/g, " ")
@@ -352,7 +371,7 @@ const handleShareJob = async () => {
     ``,
     `Location: ${job.location}`,
     `Type: ${typeConfig.label}`,
-    ...(hasSalary ? [`Salary: PKR ${salaryDisplay}`] : []),
+    ...(hasSalary ? [`Salary: ${job.currency || "PKR"} ${salaryDisplay}`] : []),
     ...(job.experience_level ? [`Experience: ${job.experience_level}`] : []),
     ``,
     descriptionPreview,
@@ -369,6 +388,7 @@ const handleShareJob = async () => {
         title: `${job.title} at ${companyName}`,
         text: shareMessage,
       });
+      trackJobEngagement("share", { jobId: job.$id, jobTitle: job.title, company: companyName });
       return;
     } catch (error) {
       if ((error as Error).name === "AbortError") return;
@@ -376,6 +396,7 @@ const handleShareJob = async () => {
   }
 
   await copyShareMessage(shareMessage);
+  trackJobEngagement("share", { jobId: job.$id, jobTitle: job.title, company: companyName });
 };
   const handleSave = async () => {
     if (!user) {
@@ -391,6 +412,7 @@ const handleShareJob = async () => {
         const result = await saveJob.mutateAsync(id!);
         const alreadySaved = typeof result === "object" && result !== null && "message" in result && (result as any).message === "Already saved";
         toast({ title: alreadySaved ? "Job already saved" : "Job saved!" });
+        trackJobEngagement("save", { jobId: job.$id, jobTitle: job.title, company: companyName });
       }
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -399,7 +421,7 @@ const handleShareJob = async () => {
 
   if (isLoading) {
     return (
-      <Layout hideFooter>
+      <Layout>
         <PageLoader
           message="Loading job details..."
           fullScreen={false}
@@ -411,12 +433,12 @@ const handleShareJob = async () => {
 
   if (jobError && !missingJob) {
     return (
-      <Layout hideFooter>
+      <Layout>
         <div className="container mx-auto px-4 py-20 text-center">
           <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-destructive/10">
             <AlertTriangle className="h-8 w-8 text-destructive" />
           </div>
-          <h2 className="text-2xl font-bold text-foreground mb-2">Unable to load this job</h2>
+          <h1 className="text-2xl font-bold text-foreground mb-2">Unable to load this job</h1>
           <p className="text-muted-foreground mb-8 max-w-2xl mx-auto">{jobErrorMessage}</p>
           <div className="flex items-center justify-center gap-3">
             <Button variant="outline" onClick={() => refetchJob()} className="rounded-xl">Try Again</Button>
@@ -429,12 +451,12 @@ const handleShareJob = async () => {
 
   if (!job || missingJob) {
     return (
-      <Layout hideFooter>
+      <Layout>
         <div className="container mx-auto px-4 py-20 text-center">
           <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-muted">
             <Briefcase className="h-8 w-8 text-muted-foreground" />
           </div>
-          <h2 className="text-2xl font-bold text-foreground mb-2">Job not found</h2>
+          <h1 className="text-2xl font-bold text-foreground mb-2">Job not found</h1>
           <p className="text-muted-foreground mb-8">This listing may have been removed or expired.</p>
           <Link to="/find-jobs"><Button className="rounded-xl">Browse Jobs</Button></Link>
         </div>
@@ -446,7 +468,7 @@ const handleShareJob = async () => {
 
   const formatSalary = (min: number | null, max: number | null) => {
     if (!min && !max) return "No Salary Mentioned";
-    if (min && max) return `${min.toLocaleString()} – ${max.toLocaleString()}`;
+    if (min && max) return `${min.toLocaleString()} - ${max.toLocaleString()}`;
     if (min) return `${min.toLocaleString()}+`;
     return `Up to ${max!.toLocaleString()}`;
   };
@@ -483,7 +505,7 @@ const handleShareJob = async () => {
   );
 
   return (
-    <Layout hideFooter>
+    <Layout>
       {/* Profile Incomplete Modal */}
       <Dialog open={showProfileModal} onOpenChange={setShowProfileModal}>
         <DialogContent className="rounded-2xl">
@@ -546,7 +568,7 @@ const handleShareJob = async () => {
       {/* Breadcrumb */}
       <div className="border-b border-border bg-card py-4">
         <div className="container mx-auto px-4">
-          <nav className="flex items-center gap-1.5 text-sm text-muted-foreground">
+          <nav className="flex items-center gap-1.5 text-sm text-muted-foreground" aria-label="Breadcrumb">
             <Link to="/" className="hover:text-foreground transition-colors">Home</Link>
             <ChevronRight className="h-3.5 w-3.5" />
             <Link to="/find-jobs" className="hover:text-foreground transition-colors">Find Jobs</Link>
@@ -578,7 +600,7 @@ const handleShareJob = async () => {
                   <div className="flex flex-wrap items-center gap-2 mb-2">
                     {job.featured && (
                       <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border border-amber-200/60 text-xs font-medium px-2.5 py-0.5">
-                        ✦ Featured
+                        Featured
                       </span>
                     )}
                     <span className={typeConfig.className}>{typeConfig.label}</span>
@@ -609,7 +631,13 @@ const handleShareJob = async () => {
                     {isSaved ? <BookmarkCheck className="h-4 w-4" /> : <Bookmark className="h-4 w-4" />}
                     {isSaveActionPending ? "..." : requiresSignInForSave ? "Save" : isSaved ? "Saved" : "Save"}
                   </Button>
-                  <Button variant="outline" size="icon" onClick={handleShareJob} className="rounded-xl h-10 w-10">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={handleShareJob}
+                    className="rounded-xl h-10 w-10"
+                    aria-label="Share this job"
+                  >
                     <Share2 className="h-4 w-4" />
                   </Button>
                 </div>
@@ -637,7 +665,7 @@ const handleShareJob = async () => {
                 <div>
                   {hasApplied ? (
                     <Button disabled className="rounded-xl h-10 px-5 gap-2">
-                      <span>✅</span> Applied
+                      Applied
                     </Button>
                   ) : userRole === "employer" ? (
                     <Button disabled className="rounded-xl h-10 px-5">
@@ -862,7 +890,7 @@ const handleShareJob = async () => {
               </p>
               {profile?.resume_url && (
                 <p className="text-xs text-emerald-600 mt-1.5 dark:text-emerald-300 flex items-center gap-1">
-                  ✓ Resume attached
+                  Resume attached
                 </p>
               )}
             </div>

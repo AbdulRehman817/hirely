@@ -1,6 +1,19 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { ChevronDown, Menu, X, User, LogOut, Home, Search, PlusCircle, Info, LayoutDashboard } from "lucide-react";
+import {
+  Building2,
+  ChevronDown,
+  Info,
+  LayoutDashboard,
+  LogOut,
+  Mail,
+  Menu,
+  PlusCircle,
+  Search,
+  User,
+  Home,
+  X,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Permission, Role } from "appwrite";
 import { getAvatarUrl } from "@/lib/avatar";
@@ -168,6 +181,7 @@ const Header = () => {
                     ? "text-primary bg-primary/8"
                     : "text-muted-foreground hover:text-foreground hover:bg-muted/70"
                 )}
+                aria-current={isActive(link.path) ? "page" : undefined}
                 >
                   <link.icon className="h-4 w-4" />
                   {link.label}
@@ -281,6 +295,7 @@ const Header = () => {
                     ? "bg-primary/10 text-primary"
                     : "text-muted-foreground hover:bg-muted"
                 )}
+                aria-current={isActive(link.path) ? "page" : undefined}
                 >
                   <link.icon className="h-5 w-5" />
                   {link.label}

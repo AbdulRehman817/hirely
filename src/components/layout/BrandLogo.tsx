@@ -29,7 +29,8 @@ const BrandLogo = ({
         <img
           src={BRAND_LOGO_SRC}
           alt={`${BRAND_NAME} logo`}
-           loading="lazy"
+          loading="eager"
+          decoding="async"
           className={cn(
             "h-full w-[42px] relative bottom-[6px] right-[12px] object-contain object-center scale-[1.8]",
             imageClassName

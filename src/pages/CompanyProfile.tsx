@@ -29,12 +29,15 @@ const CompanyProfile = () => {
     ? company.description.replace(/\s+/g, " ").slice(0, 160).trim()
     : "Explore company details and open roles on Hirelypk.";
 
+
   useSeo({
     title: companyName,
     description: companyDescription,
     canonical: company ? `${BRAND_SITE_URL}/company/${company.$id}` : undefined,
     image: company?.logo_url || undefined,
+  
     type: "profile",
+    
   });
 
 
@@ -60,8 +63,8 @@ const CompanyProfile = () => {
       <Layout>
         <div className="container mx-auto px-4 py-16 text-center">
           <Building2 className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-foreground mb-2">Company not found</h2>
-          <p className="text-muted-foreground mb-6">The company you're looking for doesn't exist.</p>
+          <h1 className="text-2xl font-bold text-foreground mb-2">Company not found</h1>
+          <h1 className="text-muted-foreground mb-6">The company you're looking for doesn't exist.</h1>
           <Link to="/employers">
             <Button className="btn-primary">Browse Companies</Button>
           </Link>
@@ -75,7 +78,7 @@ const CompanyProfile = () => {
       {/* Breadcrumb */}
       <div className="bg-secondary py-6">
         <div className="container mx-auto px-4">
-          <h1 className="text-2xl font-bold text-foreground mb-2">Company Profile</h1>
+          <p className="text-2xl font-bold text-foreground mb-2">Company Profile</p>
           <div className="text-sm text-muted-foreground">
             <Link to="/" className="hover:text-primary">
               Home
@@ -178,14 +181,14 @@ const CompanyProfile = () => {
                     const typeConfig = jobTypes[job.type as keyof typeof jobTypes] || jobTypes["full-time"];
                     return (
                       <Link
-                        key={job.id}
-                        to={`/job/${job.id}`}
+                        key={job.$id}
+                        to={`/job/${job.$id}`}
                         className="block p-4 border border-border rounded-lg hover:border-primary/30 hover:shadow-md transition-all"
                       >
                         <h3 className="font-semibold text-foreground mb-2">{job.title}</h3>
                         <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                           <span className={typeConfig.className}>{typeConfig.label}</span>
-                          <span>•</span>
+                          <span aria-hidden="true">-</span>
                           <span className="flex items-center gap-1">
                             <MapPin className="h-3 w-3" />
                             {job.location}
@@ -193,7 +196,7 @@ const CompanyProfile = () => {
                         </div>
                         {(job.salary_min || job.salary_max) && (
                           <p className="text-sm text-muted-foreground mt-2">
-                            ${job.salary_min?.toLocaleString()} - ${job.salary_max?.toLocaleString()}
+                            {job.currency || "PKR"} {job.salary_min?.toLocaleString()} - {job.salary_max?.toLocaleString()}
                           </p>
                         )}
                       </Link>
@@ -303,6 +306,7 @@ const CompanyProfile = () => {
                           href={company.linkedin_url}
                           target="_blank"
                           rel="noopener noreferrer"
+                          aria-label={`${company.name} on LinkedIn`}
                           className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary hover:bg-primary hover:text-primary-foreground transition-colors"
                         >
                           <Linkedin className="h-4 w-4" />
@@ -318,7 +322,7 @@ const CompanyProfile = () => {
             {!showContactInfo && (
               <div className="bg-muted/50 border border-border rounded-lg p-4">
                 <p className="text-sm text-muted-foreground text-center">
-                  📧 Apply through job listings to contact this company
+                  Apply through job listings to contact this company.
                 </p>
               </div>
             )}

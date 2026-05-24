@@ -9,6 +9,7 @@ import { useJobs } from "@/hooks/useJobs";
 import { useSeo } from "@/hooks/useSeo";
 import { useAuth } from "@/contexts/AuthContext";
 import { BRAND_LOGO_PATH, BRAND_SITE_URL, toAbsoluteUrl } from "@/lib/brand";
+import { trackJobSearch } from "@/lib/analytics";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -88,12 +89,13 @@ const Index = () => {
       ];
 
   useSeo({
-    title: "Find Your Next Dream Job",
+    title: "Jobs in Pakistan, Remote Jobs and Internships",
     description:
-      "Browse thousands of jobs from top companies. Apply directly on Hirelypk, with optional recruiter-enabled direct apply links.",
-    keywords: ["job board", "find jobs", "remote jobs", "full-time jobs", "career opportunities", "hirely"],
+      "Find verified jobs in Pakistan, remote roles, internships, and full-time opportunities from trusted employers on Hirelypk.",
+    keywords: ["jobs in Pakistan", "remote jobs", "internships", "full-time jobs", "career opportunities", "Hirelypk"],
     canonical: homeCanonical,
     image: homeImage,
+    imageAlt: "Hirelypk job search platform logo",
     structuredData,
   });
 
@@ -122,6 +124,7 @@ const Index = () => {
     const params = new URLSearchParams();
     if (searchTerm) params.set("q", searchTerm);
     if (locationTerm) params.set("location", locationTerm);
+    trackJobSearch({ searchTerm, location: locationTerm, source: "home" });
     navigate(`/find-jobs?${params.toString()}`);
   };
 
@@ -136,12 +139,7 @@ const Index = () => {
         <div className="container relative mx-auto px-4">
           <div className="flex flex-col items-center text-center max-w-3xl mx-auto">
             {/* Eyebrow */}
-            <div className="inline-flex items-center gap-2.5 mb-7 rounded-full border border-primary/20 bg-primary/5 px-4 py-1.5">
-              <TrendingUp className="h-3.5 w-3.5 text-primary" />
-              <span className="text-xs font-semibold tracking-widest uppercase text-primary">
-                New Opportunities Added Daily
-              </span>
-            </div>
+           
 
             <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight text-foreground mb-6 leading-[1.05]">
               Find the right job,{" "}
@@ -170,20 +168,20 @@ const Index = () => {
 
             {/* Search Bar */}
             <div className="w-full max-w-2xl mx-auto mb-14">
-              <div className="bg-card border border-border rounded-2xl p-2 flex items-center shadow-xl shadow-black/5 dark:shadow-black/25 gap-1">
-                <div className="pl-3 text-muted-foreground shrink-0">
-                  <Search className="w-4 h-4" />
+              <div className="flex flex-col gap-2 rounded-2xl border border-border bg-card p-2 shadow-xl shadow-black/5 dark:shadow-black/25 sm:flex-row sm:items-center">
+                <div className="flex min-w-0 flex-1 items-center gap-2 pl-3">
+                  <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <Input
+                    placeholder="Job title, keywords, or company..."
+                    className="h-11 border-0 bg-transparent text-sm shadow-none placeholder:text-muted-foreground/60 focus-visible:ring-0"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                  />
                 </div>
-                <Input
-                  placeholder="Job title, keywords, or company..."
-                  className="border-0 bg-transparent shadow-none text-sm h-11 focus-visible:ring-0 placeholder:text-muted-foreground/60"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                />
                 <Button
                   size="default"
-                  className="rounded-xl h-11 px-6 text-sm font-semibold shrink-0 shadow-md shadow-primary/20 hover:shadow-primary/30 hover:-translate-y-0.5 transition-all"
+                  className="h-11 w-full shrink-0 rounded-xl px-6 text-sm font-semibold shadow-md shadow-primary/20 transition-all hover:-translate-y-0.5 hover:shadow-primary/30 sm:w-auto"
                   onClick={handleSearch}
                 >
                   Search Jobs

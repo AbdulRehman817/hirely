@@ -1,9 +1,11 @@
 import { Link } from "react-router-dom";
 import { Linkedin, Mail } from "lucide-react";
 import BrandLogo from "./BrandLogo";
-
-const WHATSAPP_COMMUNITY_URL = "https://chat.whatsapp.com/BZ6TwCE0esh89aw3KAnGnx";
-const LINKEDIN_URL = "https://www.linkedin.com/company/hirelypk";
+import {
+  BRAND_CONTACT_EMAIL,
+  BRAND_LINKEDIN_URL,
+  BRAND_WHATSAPP_COMMUNITY_URL,
+} from "@/lib/brand";
 
 const WhatsAppIcon = ({ className }: { className?: string }) => {
   return (
@@ -20,12 +22,11 @@ const WhatsAppIcon = ({ className }: { className?: string }) => {
 
 const Footer = () => {
   return (
-    <footer className="bg-slate-950 text-slate-300 pt-14 pb-8">
+    <footer className="bg-slate-950 pt-14 pb-8 text-slate-300">
       <div className="container mx-auto px-4">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 mb-12">
-          {/* Brand */}
-           <div className="lg:col-span-7 space-y-0">
-            <Link to="/" className="flex items-center gap-2 shrink-0 ">
+        <div className="mb-12 grid grid-cols-1 gap-10 lg:grid-cols-12">
+          <div className="space-y-0 lg:col-span-7">
+            <Link to="/" className="flex items-center gap-2">
               <BrandLogo
                 className="gap-3"
                 imageWrapperClassName="h-12 w-12 rounded-xl"
@@ -33,66 +34,74 @@ const Footer = () => {
               />
             </Link>
 
-            <p className="mb-[6px] text-slate-400 leading-relaxed max-w-xl text-sm sm:text-base ">
+            <p className="mb-[6px] max-w-xl text-sm leading-relaxed text-slate-400 sm:text-base">
               Connecting talent with opportunity. The most trusted platform for finding your next career move.
             </p>
 
-          
             <div className="flex flex-wrap items-center gap-4 pt-2">
               <a
-                href={WHATSAPP_COMMUNITY_URL}
+                href={BRAND_WHATSAPP_COMMUNITY_URL}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 rounded-md border border-slate-700 px-3 py-2 text-sm text-slate-200 hover:border-slate-500 hover:text-white transition-colors"
+                className="inline-flex items-center gap-2 rounded-md border border-slate-700 px-3 py-2 text-sm text-slate-200 transition-colors hover:border-slate-500 hover:text-white"
                 aria-label="Join our WhatsApp community"
               >
                 <WhatsAppIcon className="h-4 w-4 text-green-400" />
-              
               </a>
 
               <a
-                href={LINKEDIN_URL}
+                href={BRAND_LINKEDIN_URL}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 rounded-md border border-slate-700 px-3 py-2 text-sm text-slate-200 hover:border-slate-500 hover:text-white transition-colors"
+                className="inline-flex items-center gap-2 rounded-md border border-slate-700 px-3 py-2 text-sm text-slate-200 transition-colors hover:border-slate-500 hover:text-white"
                 aria-label="Visit our LinkedIn page"
               >
                 <Linkedin className="h-4 w-4 text-sky-400" />
-                
               </a>
             </div>
-          
           </div>
 
-          {/* Contact */}
           <div className="lg:col-span-5 lg:pl-10 lg:text-right">
-            <h4 className="font-semibold text-md text-white mb-6">Contact Us</h4>
+            <h2 className="mb-6 text-base font-semibold text-white">Contact Us</h2>
             <ul className="space-y-5 text-base">
               <li>
                 <a
-                  href="mailto: hirely.contact@gmail.com"
-                  className="inline-flex items-center gap-2 text-slate-300 hover:text-white transition-colors"
+                  href={`mailto:${BRAND_CONTACT_EMAIL}`}
+                  className="inline-flex items-center gap-2 text-slate-300 transition-colors hover:text-white"
                 >
                   <Mail className="h-3 w-4" />
-                 hirely.contact@gmail.com
+                  {BRAND_CONTACT_EMAIL}
                 </a>
               </li>
-            
               <li>
-                <Link to="/about" className="text-slate-300 hover:text-white transition-colors text-md">
+                <Link to="/about" className="text-slate-300 transition-colors hover:text-white">
                   About Hirelypk
+                </Link>
+              </li>
+              <li>
+                <Link to="/contact" className="text-slate-300 transition-colors hover:text-white">
+                  Contact Us
                 </Link>
               </li>
             </ul>
           </div>
         </div>
 
-        {/* Bottom bar */}
-        <div className="border-t border-slate-800 pt-6 flex flex-col md:flex-row items-center justify-between gap-3 text-xs text-slate-500">
-          <p>� 2026 Hirelypk Inc. All rights reserved.</p>
-          <div className="flex gap-6">
-            <Link to="/contact" className="hover:text-slate-300 transition-colors">Privacy Policy</Link>
-            <Link to="/contact" className="hover:text-slate-300 transition-colors">Terms of Service</Link>
+        <div className="flex flex-col items-center justify-between gap-3 border-t border-slate-800 pt-6 text-xs text-slate-500 md:flex-row">
+          <p>Copyright 2026 Hirelypk Inc. All rights reserved.</p>
+          <div className="flex flex-wrap items-center justify-center gap-5">
+            <Link to="/privacy-policy" className="transition-colors hover:text-slate-300">
+              Privacy Policy
+            </Link>
+            <Link to="/terms-and-conditions" className="transition-colors hover:text-slate-300">
+              Terms
+            </Link>
+            <Link to="/disclaimer" className="transition-colors hover:text-slate-300">
+              Disclaimer
+            </Link>
+            <a href="/sitemap.xml" className="transition-colors hover:text-slate-300">
+              Sitemap
+            </a>
           </div>
         </div>
       </div>

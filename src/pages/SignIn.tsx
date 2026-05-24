@@ -111,8 +111,8 @@ const SignIn = () => {
                 />
                 <span className="text-sm text-muted-foreground">Remember me</span>
               </label>
-              <Link to="/forgot-password" className="text-sm text-primary hover:underline">
-                Forgot password?
+              <Link to="/contact" className="text-sm text-primary hover:underline">
+                Need help signing in?
               </Link>
             </div>
 

@@ -20,11 +20,13 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { useJobs } from "@/hooks/useJobs";
 import { useSeo } from "@/hooks/useSeo";
-import Header from "@/components/layout/Header";
+import Layout from "@/components/layout/Layout";
 import PageLoader from "@/components/layout/PageLoader";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import { normalizeJobType } from "@/lib/jobType";
+import { BRAND_SITE_URL } from "@/lib/brand";
+import { trackJobSearch } from "@/lib/analytics";
 
 const ITEMS_PER_PAGE = 12;
 
@@ -106,6 +108,7 @@ const FindJobs = () => {
     if (normalizedLocation) nextParams.set("location", normalizedLocation);
 
     setSearchParams(nextParams);
+    trackJobSearch({ searchTerm: normalizedSearch, location: normalizedLocation, source: "find_jobs" });
     setCurrentPage(1);
   };
 
@@ -121,23 +124,35 @@ const FindJobs = () => {
     selectedTypes.length > 0 ||
     appliedLocationTerm.trim().length > 0 ||
     appliedSearchTerm.trim().length > 0;
+  const canonical = `${BRAND_SITE_URL}/find-jobs`;
 
   useSeo({
-    title: "Find Jobs | Hirelypk",
-    description: "Search and filter jobs by title, location, and type on Hirelypk.",
+    title: appliedSearchTerm
+      ? `${appliedSearchTerm} Jobs`
+      : "Find Jobs in Pakistan, Remote Jobs and Internships",
+    description: appliedSearchTerm
+      ? `Browse ${appliedSearchTerm} jobs on Hirelypk and apply to verified openings from trusted employers.`
+      : "Search verified jobs by title, company, location, and job type on Hirelypk.",
+    canonical,
     noIndex: hasActiveFilters,
+    structuredData: {
+      "@context": "https://schema.org",
+      "@type": "CollectionPage",
+      name: "Find Jobs on Hirelypk",
+      description: "Search verified jobs by title, company, location, and job type on Hirelypk.",
+      url: canonical,
+    },
   });
 
   const formatSalary = (min: number | null, max: number | null, _currency: string) => {
     if (!min && !max) return "No Salary Mentioned";
-    if (min && max) return `${(min / 1000).toFixed(0)}k – ${(max / 1000).toFixed(0)}k`;
+    if (min && max) return `${(min / 1000).toFixed(0)}k - ${(max / 1000).toFixed(0)}k`;
     if (min) return `${(min / 1000).toFixed(0)}k+`;
     return `Up to ${(max! / 1000).toFixed(0)}k`;
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
+    <Layout>
 
       {/* Hero Search Section */}
       <section className="relative overflow-hidden border-b border-border bg-card">
@@ -429,6 +444,7 @@ const FindJobs = () => {
                   className="h-9 w-9 rounded-xl"
                   onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                   disabled={currentPage === 1}
+                  aria-label="Previous page"
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
@@ -450,6 +466,8 @@ const FindJobs = () => {
                       size="icon"
                       className="h-9 w-9 rounded-xl"
                       onClick={() => setCurrentPage(pageNum)}
+                      aria-label={`Go to page ${pageNum}`}
+                      aria-current={currentPage === pageNum ? "page" : undefined}
                     >
                       {pageNum}
                     </Button>
@@ -461,6 +479,7 @@ const FindJobs = () => {
                   className="h-9 w-9 rounded-xl"
                   onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                   disabled={currentPage === totalPages}
+                  aria-label="Next page"
                 >
                   <ChevronRight className="h-4 w-4" />
                 </Button>
@@ -469,7 +488,7 @@ const FindJobs = () => {
           </main>
         </div>
       </div>
-    </div>
+    </Layout>
   );
 };
 

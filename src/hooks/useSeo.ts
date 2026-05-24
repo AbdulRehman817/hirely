@@ -17,6 +17,7 @@ export interface SeoConfig {
   description?: string;
   keywords?: string[] | string;
   image?: string;
+  imageAlt?: string;
   canonical?: string;
   type?: string;
   noIndex?: boolean;
@@ -74,11 +75,26 @@ const resolveAbsoluteUrl = (value?: string) => {
   return /^https?:\/\//i.test(value) ? value : toAbsoluteUrl(value);
 };
 
+const normalizeCanonicalPath = (value?: string) => {
+  if (!value) return undefined;
+  const absoluteUrl = resolveAbsoluteUrl(value);
+  if (!absoluteUrl) return undefined;
+
+  try {
+    const url = new URL(absoluteUrl);
+    url.hash = "";
+    return url.toString();
+  } catch {
+    return absoluteUrl;
+  }
+};
+
 export const useSeo = ({
   title,
   description,
   keywords,
   image,
+  imageAlt,
   canonical,
   type = "website",
   noIndex = false,
@@ -100,21 +116,27 @@ export const useSeo = ({
 
     const resolvedDescription = description || DEFAULT_DESCRIPTION;
     const resolvedKeywords = Array.isArray(keywords) ? keywords.join(", ") : keywords;
-    const resolvedCanonical = resolveAbsoluteUrl(canonical);
+    const resolvedCanonical = normalizeCanonicalPath(canonical);
     const currentPath =
       typeof window !== "undefined"
         ? `${window.location.pathname}${window.location.search}`
         : "";
-    const resolvedUrl =
-      resolvedCanonical || (currentPath ? `${BRAND_SITE_URL}${currentPath}` : BRAND_SITE_URL);
+    const resolvedUrl = normalizeCanonicalPath(
+      resolvedCanonical || (currentPath ? `${BRAND_SITE_URL}${currentPath}` : BRAND_SITE_URL),
+    );
     const resolvedImage =
       resolveAbsoluteUrl(image) ||
       toAbsoluteUrl(BRAND_LOGO_PATH);
+    const resolvedImageAlt = imageAlt || `${SITE_NAME} logo`;
 
     document.title = resolvedTitle;
     upsertMeta("name", "description", resolvedDescription);
     upsertMeta("name", "keywords", resolvedKeywords);
-    upsertMeta("name", "robots", noIndex ? "noindex, nofollow" : "index, follow");
+    upsertMeta(
+      "name",
+      "robots",
+      noIndex ? "noindex, nofollow" : "index, follow, max-image-preview:large",
+    );
     upsertMeta("name", "author", SITE_NAME);
 
     upsertLink("canonical", resolvedUrl);
@@ -126,14 +148,15 @@ export const useSeo = ({
     upsertMeta("property", "og:type", type);
     upsertMeta("property", "og:url", resolvedUrl);
     upsertMeta("property", "og:image", resolvedImage);
-    upsertMeta("property", "og:image:alt", `${SITE_NAME} logo`);
+    upsertMeta("property", "og:image:alt", resolvedImageAlt);
 
     upsertMeta("name", "twitter:card", "summary_large_image");
     upsertMeta("name", "twitter:title", resolvedTitle);
     upsertMeta("name", "twitter:description", resolvedDescription);
     upsertMeta("name", "twitter:image", resolvedImage);
+    upsertMeta("name", "twitter:image:alt", resolvedImageAlt);
 
     upsertJsonLd("seo-structured-data", structuredData);
-  }, [title, description, keywords, image, canonical, type, noIndex, structuredData]);
+  }, [title, description, keywords, image, imageAlt, canonical, type, noIndex, structuredData]);
 };
 

@@ -3,13 +3,31 @@ import { ArrowRight, BriefcaseBusiness, ShieldCheck, Users, Sparkles, Zap, Globe
 import Layout from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { useSeo } from "@/hooks/useSeo";
+import { BRAND_NAME, BRAND_SITE_URL } from "@/lib/brand";
 
 const About = () => {
+  const canonical = `${BRAND_SITE_URL}/about`;
+
   useSeo({
-    title: "About Hirelypk",
+    title: `About Us | ${BRAND_NAME}`,
     description:
-      "Hirelypk is a premium, manually curated job board connecting high-caliber talent with top-tier opportunities.",
+      "Learn how Hirelypk helps job seekers find verified opportunities and helps employers reach qualified talent.",
+    canonical,
+    structuredData: {
+      "@context": "https://schema.org",
+      "@type": "AboutPage",
+      name: `About ${BRAND_NAME}`,
+      description:
+        "Hirelypk helps job seekers find verified opportunities and helps employers reach qualified talent.",
+      url: canonical,
+      mainEntity: {
+        "@type": "Organization",
+        name: BRAND_NAME,
+        url: BRAND_SITE_URL,
+      },
+    },
   });
+
 
   const highlights = [
     {
@@ -57,12 +75,7 @@ const About = () => {
         <div className="container relative mx-auto px-4 text-center">
           <div className="mx-auto max-w-4xl">
             {/* Eyebrow */}
-            <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/6 px-4 py-1.5 mb-7">
-              <Sparkles className="h-3.5 w-3.5 text-primary" />
-              <span className="text-xs font-bold tracking-widest uppercase text-primary">
-                The Future of Search
-              </span>
-            </div>
+           
 
             <h1 className="text-5xl sm:text-6xl lg:text-7xl font-extrabold text-foreground mb-7 tracking-tight leading-[1.08]">
               Elevating the{" "}

@@ -262,8 +262,8 @@ avatarPreview: "",
               />
               <span className="text-sm text-muted-foreground">
                 I've read and agree with your{" "}
-                <Link to="/terms" className="text-primary hover:underline">
-                  Terms of Services
+                <Link to="/terms-and-conditions" className="text-primary hover:underline">
+                  Terms and Conditions
                 </Link>
               </span>
             </label>
