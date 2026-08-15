@@ -16,6 +16,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import PageLoader from "@/components/layout/PageLoader";
 import { useSeo } from "@/hooks/useSeo";
 import JobDetails from "./pages/JobDetails";
+import AffiliateSlideIn from "./components/promo/AffiliateSlideIn";
 
 const Index = lazy(() => import("./pages/Index"));
 const SignIn = lazy(() => import("./pages/SignIn"));
@@ -95,6 +96,7 @@ const App = () => (
         <TooltipProvider>
           <Toaster />
           <Sonner />
+          <AffiliateSlideIn />
           <BrowserRouter>
             <HashJobRouteBridge />
             <Suspense fallback={<PageLoader />}>
