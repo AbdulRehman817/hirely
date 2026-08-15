@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { X, Clock } from "lucide-react";
+import { X } from "lucide-react";
 
 interface AffiliateSlideInProps {
   title?: string;
   description?: string;
+  imageUrl?: string;
   linkUrl?: string;
   linkLabel?: string;
   delayMs?: number;
@@ -18,6 +19,7 @@ interface AffiliateSlideInProps {
 export default function AffiliateSlideIn({
   title = "Interview-ready watch",
   description = "Look sharp for your next interview.",
+  imageUrl = "/public/affiliate-watch.jpg",
   linkUrl = "https://amzn.to/3TTiBTb",
   linkLabel = "View on Amazon →",
   delayMs = 4000,
@@ -66,8 +68,12 @@ export default function AffiliateSlideIn({
         </button>
       </div>
 
-      <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center mb-2.5">
-        <Clock size={18} className="text-primary" />
+      <div className="w-full h-28 rounded-lg overflow-hidden mb-2.5 bg-muted flex items-center justify-center">
+        <img
+          src={imageUrl}
+          alt={title}
+          className="w-full h-full object-contain"
+        />
       </div>
 
       <p className="font-medium text-[13px] text-foreground mb-1">{title}</p>

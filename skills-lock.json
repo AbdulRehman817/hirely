@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "programmatic-seo": {
+      "source": "davila7/claude-code-templates",
+      "sourceType": "github",
+      "skillPath": "cli-tool/components/skills/business-marketing/programmatic-seo/SKILL.md",
+      "computedHash": "df62848ddf2c502256b927b318b923ef32238d712db63b95e170cdac80931a94"
+    }
+  }
+}
