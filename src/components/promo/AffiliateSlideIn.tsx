@@ -19,7 +19,7 @@ interface AffiliateSlideInProps {
 export default function AffiliateSlideIn({
   title = "Interview-ready watch",
   description = "Look sharp for your next interview.",
-  imageUrl = "/public/affiliate-watch.jpg",
+  imageUrl = "public\\affiliate-watch.jpg",
   linkUrl = "https://amzn.to/3TTiBTb",
   linkLabel = "View on Amazon →",
   delayMs = 4000,
